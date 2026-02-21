@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bruin-sdk"
-version = "0.2.1"
+version = "0.3.0"
 description = "Python SDK for Bruin CLI — query databases, parse context, and access connections with zero boilerplate."
 readme = "docs/README.md"
 license = "Apache-2.0"
@@ -42,6 +42,12 @@ athena = ["pyathena"]
 trino = ["trino"]
 motherduck = ["duckdb"]
 synapse = ["pymssql"]
+fabric = ["pymssql"]
+oracle = ["oracledb"]
+db2 = ["ibm-db"]
+hana = ["hdbcli"]
+spanner = ["google-cloud-spanner", "google-auth"]
+vertica = ["vertica-python"]
 all = [
     "bruin-sdk[bigquery]",
     "bruin-sdk[snowflake]",
@@ -57,6 +63,12 @@ all = [
     "bruin-sdk[trino]",
     "bruin-sdk[motherduck]",
     "bruin-sdk[synapse]",
+    "bruin-sdk[fabric]",
+    "bruin-sdk[oracle]",
+    "bruin-sdk[db2]",
+    "bruin-sdk[hana]",
+    "bruin-sdk[spanner]",
+    "bruin-sdk[vertica]",
 ]
 dev = ["pytest", "pytest-cov"]
 

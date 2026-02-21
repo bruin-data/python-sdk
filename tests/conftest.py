@@ -149,3 +149,78 @@ def motherduck_connection_json():
         "token": "md_abc123",
         "database": "my_db",
     }
+
+
+@pytest.fixture
+def fabric_connection_json():
+    return {
+        "host": "fabric.example.com",
+        "port": 1433,
+        "username": "admin",
+        "password": "s3cret",
+        "database": "warehouse",
+    }
+
+
+@pytest.fixture
+def oracle_connection_json():
+    return {
+        "host": "oracle.example.com",
+        "port": 1521,
+        "username": "system",
+        "password": "s3cret",
+        "service_name": "ORCL",
+    }
+
+
+@pytest.fixture
+def oracle_sid_connection_json():
+    return {
+        "host": "oracle.example.com",
+        "port": 1521,
+        "username": "system",
+        "password": "s3cret",
+        "sid": "XE",
+    }
+
+
+@pytest.fixture
+def db2_connection_json():
+    return {
+        "host": "db2.example.com",
+        "port": 50000,
+        "username": "db2admin",
+        "password": "s3cret",
+        "database": "SAMPLE",
+    }
+
+
+@pytest.fixture
+def hana_connection_json():
+    return {
+        "host": "hana.example.com",
+        "port": 30015,
+        "username": "SYSTEM",
+        "password": "s3cret",
+        "database": "HDB",
+    }
+
+
+@pytest.fixture
+def spanner_connection_json():
+    return {
+        "project_id": "my-gcp-project",
+        "instance_id": "my-instance",
+        "database": "my-db",
+    }
+
+
+@pytest.fixture
+def vertica_connection_json():
+    return {
+        "host": "vertica.example.com",
+        "port": 5433,
+        "username": "dbadmin",
+        "password": "s3cret",
+        "database": "analytics",
+    }
