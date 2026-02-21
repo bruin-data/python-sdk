@@ -77,3 +77,6 @@ packages = ["src/bruin"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests requiring real database connections (may be slow)",
+]
