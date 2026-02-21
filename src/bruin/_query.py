@@ -9,6 +9,21 @@ _RETURNS_DATA = re.compile(
     re.IGNORECASE,
 )
 
+_CTE_DML = re.compile(
+    r"\)\s*(INSERT|UPDATE|DELETE|MERGE)\b",
+    re.IGNORECASE,
+)
+
+# Connection types that use the generic PEP 249 (DBAPI) cursor/read_sql path.
+_DBAPI_TYPES = frozenset((
+    "postgres", "redshift", "mssql", "synapse", "mysql", "athena", "trino", "sqlite",
+))
+
+# Subset of _DBAPI_TYPES that require an explicit commit() for DDL/DML.
+_TRANSACTIONAL = frozenset((
+    "postgres", "redshift", "mssql", "synapse", "mysql", "sqlite",
+))
+
 
 def _annotate_sql(sql: str) -> str:
     """Prepend a ``@bruin.config`` comment so queries are traceable."""
@@ -20,6 +35,25 @@ def _annotate_sql(sql: str) -> str:
         "pipeline": context.pipeline or "",
     }
     return f"-- @bruin.config: {json.dumps(meta, separators=(',', ':'))}\n{sql}"
+
+
+def _run_query(conn, sql: str):
+    """Core query execution shared by ``query()`` and ``Connection.query()``."""
+    if conn.type == "generic":
+        raise ConnectionTypeError(
+            f"Cannot run queries against generic connection '{conn.name}'."
+        )
+
+    annotated = _annotate_sql(sql)
+
+    try:
+        return _execute(conn, annotated)
+    except ConnectionTypeError:
+        raise
+    except Exception as exc:
+        raise QueryError(
+            f"Query failed on connection '{conn.name}' ({conn.type}): {exc}"
+        ) from exc
 
 
 def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
@@ -50,22 +84,7 @@ def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
             )
 
     conn = get_connection(connection)
-
-    if conn.type == "generic":
-        raise ConnectionTypeError(
-            f"Cannot run queries against generic connection '{connection}'."
-        )
-
-    annotated = _annotate_sql(sql)
-
-    try:
-        return _execute(conn, annotated)
-    except ConnectionTypeError:
-        raise
-    except Exception as exc:
-        raise QueryError(
-            f"Query failed on connection '{connection}' ({conn.type}): {exc}"
-        ) from exc
+    return _run_query(conn, sql)
 
 
 def _returns_data(sql: str) -> bool:
@@ -73,7 +92,13 @@ def _returns_data(sql: str) -> bool:
     # Strip leading comments (-- ... and /* ... */) before checking
     stripped = re.sub(r"--[^\n]*(\n|$)", "", sql)
     stripped = re.sub(r"/\*.*?\*/", "", stripped, flags=re.DOTALL)
-    return bool(_RETURNS_DATA.match(stripped.strip()))
+    stripped = stripped.strip()
+    if not _RETURNS_DATA.match(stripped):
+        return False
+    # WITH ... INSERT/UPDATE/DELETE/MERGE is DML, not data-returning
+    if stripped.upper().startswith("WITH") and _CTE_DML.search(stripped):
+        return False
+    return True
 
 
 def _execute(conn, sql: str):
@@ -95,24 +120,47 @@ def _execute(conn, sql: str):
         finally:
             cur.close()
 
-    if conn.type in ("postgres", "redshift", "mssql", "mysql"):
+    if conn.type in _DBAPI_TYPES:
         if _returns_data(sql):
             import pandas as pd
             return pd.read_sql(sql, conn.client)
-        # For DDL/DML, execute directly
         client = conn.client
         cur = client.cursor()
         try:
             cur.execute(sql)
-            client.commit()
+            if conn.type in _TRANSACTIONAL:
+                client.commit()
         finally:
             cur.close()
         return None
 
-    if conn.type == "duckdb":
+    if conn.type in ("duckdb", "motherduck"):
         if _returns_data(sql):
             return conn.client.execute(sql).fetchdf()
         conn.client.execute(sql)
+        return None
+
+    if conn.type == "databricks":
+        cur = conn.client.cursor()
+        try:
+            cur.execute(sql)
+            if _returns_data(sql):
+                import pandas as pd
+                cols = [desc[0] for desc in cur.description]
+                return pd.DataFrame(cur.fetchall(), columns=cols)
+            return None
+        finally:
+            cur.close()
+
+    if conn.type == "clickhouse":
+        if _returns_data(sql):
+            result = conn.client.query(sql)
+            import pandas as pd
+            return pd.DataFrame(
+                result.result_rows,
+                columns=result.column_names,
+            )
+        conn.client.command(sql)
         return None
 
     raise ConnectionTypeError(

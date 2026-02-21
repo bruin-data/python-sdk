@@ -36,6 +36,29 @@ def snowflake_connection_json():
 
 
 @pytest.fixture
+def snowflake_keypair_connection_json():
+    """Snowflake connection using key-pair auth (no password, private_key set)."""
+    return {
+        "account": "xy12345.us-east-1",
+        "username": "BRUIN_USER",
+        "password": "",
+        "database": "ANALYTICS",
+        "warehouse": "COMPUTE_WH",
+        "schema": "PUBLIC",
+        "role": "ANALYST",
+        "private_key": (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7o4qne60TB3pE\n"
+            "kFSFrEJma5GHSdIjauGw3sMPOjI0Ug29+VNqDuG5MXk9IJLD6RLhuGODRvFGyS+P\n"
+            "rY5LjrIBKBQhAEp/2VJFXkOGJQ3IJGVk8bqv3jnYEDwIFagqnDYBPi3F7j6gfsOI\n"
+            "rQbcgz0gVLMnBRBYSVbFnuHdKOfv3M3dNFCaXBJLuEFDeUSisLfHJsBanMNLqEv3\n"
+            "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7o4qne60TB3pE\n"
+            "-----END PRIVATE KEY-----\n"
+        ),
+    }
+
+
+@pytest.fixture
 def postgres_connection_json():
     return {
         "host": "db.example.com",
@@ -66,4 +89,63 @@ def mysql_connection_json():
         "username": "root",
         "password": "s3cret",
         "database": "app",
+    }
+
+
+@pytest.fixture
+def databricks_connection_json():
+    return {
+        "host": "dbc-abc123.cloud.databricks.com",
+        "path": "/sql/1.0/warehouses/xyz789",
+        "token": "dapi1234567890",
+        "catalog": "main",
+        "schema": "default",
+    }
+
+
+@pytest.fixture
+def clickhouse_connection_json():
+    return {
+        "host": "ch.example.com",
+        "port": 8123,
+        "username": "default",
+        "password": "s3cret",
+        "database": "analytics",
+    }
+
+
+@pytest.fixture
+def athena_connection_json():
+    return {
+        "access_key_id": "AKIA...",
+        "secret_access_key": "wJal...",
+        "query_results_path": "s3://my-bucket/athena-results/",
+        "region": "us-east-1",
+        "database": "my_db",
+    }
+
+
+@pytest.fixture
+def trino_connection_json():
+    return {
+        "host": "trino.example.com",
+        "port": 8080,
+        "username": "analyst",
+        "catalog": "hive",
+        "schema": "default",
+    }
+
+
+@pytest.fixture
+def sqlite_connection_json():
+    return {
+        "path": ":memory:",
+    }
+
+
+@pytest.fixture
+def motherduck_connection_json():
+    return {
+        "token": "md_abc123",
+        "database": "my_db",
     }

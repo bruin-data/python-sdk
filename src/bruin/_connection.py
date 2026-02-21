@@ -34,23 +34,25 @@ class Connection:
         Returns a pandas DataFrame for data-returning statements,
         or None for DDL/DML.
         """
-        from bruin._query import _annotate_sql, _execute
+        from bruin._query import _run_query
 
-        if self.type == "generic":
-            raise ConnectionTypeError(
-                f"Cannot run queries against generic connection '{self.name}'."
-            )
+        return _run_query(self, sql)
 
-        annotated = _annotate_sql(sql)
-        try:
-            return _execute(self, annotated)
-        except ConnectionTypeError:
-            raise
-        except Exception as exc:
-            from bruin.exceptions import QueryError
-            raise QueryError(
-                f"Query failed on connection '{self.name}' ({self.type}): {exc}"
-            ) from exc
+    def close(self):
+        """Close the underlying database client if it was initialized."""
+        if self._client is None:
+            return
+        close = getattr(self._client, "close", None)
+        if callable(close):
+            close()
+        self._client = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
 
 
 class GCPConnection(Connection):
@@ -61,14 +63,15 @@ class GCPConnection(Connection):
         self._credentials = None
         self._bigquery_client = None
 
+    def _uses_adc(self) -> bool:
+        """Return True when the connection is configured for Application Default Credentials."""
+        return self.raw.get("use_application_default_credentials") in ("true", "True", True)
+
     def _parse_sa_info(self):
         """Parse the service account JSON from the connection payload."""
-        try:
-            sa_json = self.raw["service_account_json"]
-        except KeyError:
-            raise ConnectionParseError(
-                f"Connection '{self.name}' is missing 'service_account_json' field."
-            )
+        sa_json = self.raw.get("service_account_json", "")
+        if not sa_json:
+            return None
         try:
             return json.loads(sa_json)
         except (json.JSONDecodeError, TypeError) as exc:
@@ -78,8 +81,19 @@ class GCPConnection(Connection):
 
     @property
     def credentials(self):
-        """Return google.oauth2 credentials from the service account JSON."""
-        if self._credentials is None:
+        """Return google credentials.
+
+        Supports three modes (checked in order):
+        1. Inline service-account JSON (``service_account_json``)
+        2. Application Default Credentials (``use_application_default_credentials``)
+        3. Fallback to ADC when neither is provided
+        """
+        if self._credentials is not None:
+            return self._credentials
+
+        sa_info = self._parse_sa_info()
+
+        if sa_info is not None and not self._uses_adc():
             try:
                 from google.oauth2 import service_account
             except ImportError:
@@ -87,8 +101,17 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use GCP credentials: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
-            sa_info = self._parse_sa_info()
             self._credentials = service_account.Credentials.from_service_account_info(sa_info)
+        else:
+            try:
+                import google.auth
+            except ImportError:
+                raise ImportError(
+                    "Install bruin-sdk[bigquery] to use GCP credentials: "
+                    "pip install 'bruin-sdk[bigquery]'"
+                )
+            self._credentials, _ = google.auth.default()
+
         return self._credentials
 
     def bigquery(self):
@@ -137,6 +160,15 @@ class GCPConnection(Connection):
         """Alias for bigquery() — the most common use case."""
         return self.bigquery()
 
+    def close(self):
+        """Close the BigQuery client if it was initialized."""
+        if self._bigquery_client is not None:
+            close = getattr(self._bigquery_client, "close", None)
+            if callable(close):
+                close()
+            self._bigquery_client = None
+        self._credentials = None
+
 
 def _create_client(conn_type: str, raw):
     """Create a database client based on connection type."""
@@ -145,8 +177,15 @@ def _create_client(conn_type: str, raw):
         "postgres": _create_postgres,
         "redshift": _create_postgres,
         "mssql": _create_mssql,
+        "synapse": _create_mssql,
         "mysql": _create_mysql,
         "duckdb": _create_duckdb,
+        "databricks": _create_databricks,
+        "clickhouse": _create_clickhouse,
+        "athena": _create_athena,
+        "trino": _create_trino,
+        "sqlite": _create_sqlite,
+        "motherduck": _create_motherduck,
     }
     factory = factories.get(conn_type)
     if factory is None:
@@ -165,15 +204,32 @@ def _create_snowflake(raw: dict):
             "Install bruin-sdk[snowflake] to use Snowflake connections: "
             "pip install 'bruin-sdk[snowflake]'"
         )
-    return snowflake.connector.connect(
-        account=raw["account"],
-        user=raw["username"],
-        password=raw["password"],
-        database=raw.get("database", ""),
-        warehouse=raw.get("warehouse", ""),
-        schema=raw.get("schema", ""),
-        role=raw.get("role", ""),
-    )
+    kwargs = {
+        "account": raw["account"],
+        "user": raw["username"],
+        "database": raw.get("database", ""),
+        "warehouse": raw.get("warehouse", ""),
+        "schema": raw.get("schema", ""),
+        "role": raw.get("role", ""),
+    }
+    if raw.get("region"):
+        kwargs["region"] = raw["region"]
+
+    private_key_pem = raw.get("private_key", "")
+    if private_key_pem:
+        from cryptography.hazmat.primitives import serialization
+        p_key = serialization.load_pem_private_key(
+            private_key_pem.encode(), password=None,
+        )
+        kwargs["private_key"] = p_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    else:
+        kwargs["password"] = raw.get("password", "")
+
+    return snowflake.connector.connect(**kwargs)
 
 
 def _create_postgres(raw: dict):
@@ -237,6 +293,106 @@ def _create_duckdb(raw: dict):
             "pip install 'bruin-sdk[duckdb]'"
         )
     return duckdb.connect(raw.get("path", ":memory:"))
+
+
+def _create_databricks(raw: dict):
+    try:
+        from databricks import sql as databricks_sql
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[databricks] to use Databricks connections: "
+            "pip install 'bruin-sdk[databricks]'"
+        )
+    return databricks_sql.connect(
+        server_hostname=raw["host"],
+        http_path=raw["path"],
+        access_token=raw.get("token", ""),
+        catalog=raw.get("catalog", ""),
+        schema=raw.get("schema", ""),
+    )
+
+
+def _create_clickhouse(raw: dict):
+    try:
+        import clickhouse_connect
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[clickhouse] to use ClickHouse connections: "
+            "pip install 'bruin-sdk[clickhouse]'"
+        )
+    return clickhouse_connect.get_client(
+        host=raw["host"],
+        port=raw.get("port", 8123),
+        username=raw.get("username", "default"),
+        password=raw.get("password", ""),
+        database=raw.get("database", "default"),
+        secure=bool(raw.get("secure", False)),
+    )
+
+
+def _create_athena(raw: dict):
+    try:
+        from pyathena import connect as athena_connect
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[athena] to use Athena connections: "
+            "pip install 'bruin-sdk[athena]'"
+        )
+    kwargs = {
+        "s3_staging_dir": raw.get("query_results_path", ""),
+        "region_name": raw.get("region", ""),
+    }
+    if raw.get("access_key_id"):
+        kwargs["aws_access_key_id"] = raw["access_key_id"]
+    if raw.get("secret_access_key"):
+        kwargs["aws_secret_access_key"] = raw["secret_access_key"]
+    if raw.get("database"):
+        kwargs["schema_name"] = raw["database"]
+    if raw.get("profile"):
+        kwargs["profile_name"] = raw["profile"]
+    return athena_connect(**kwargs)
+
+
+def _create_trino(raw: dict):
+    try:
+        from trino.dbapi import connect as trino_connect
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[trino] to use Trino connections: "
+            "pip install 'bruin-sdk[trino]'"
+        )
+    kwargs = {
+        "host": raw["host"],
+        "port": raw.get("port", 8080),
+        "user": raw.get("username", ""),
+        "catalog": raw.get("catalog", ""),
+        "schema": raw.get("schema", ""),
+    }
+    if raw.get("password"):
+        from trino.auth import BasicAuthentication
+        kwargs["auth"] = BasicAuthentication(raw.get("username", ""), raw["password"])
+        kwargs["http_scheme"] = "https"
+    return trino_connect(**kwargs)
+
+
+def _create_sqlite(raw: dict):
+    import sqlite3
+    return sqlite3.connect(raw.get("path", ":memory:"))
+
+
+def _create_motherduck(raw: dict):
+    try:
+        import duckdb
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[duckdb] to use MotherDuck connections: "
+            "pip install 'bruin-sdk[duckdb]'"
+        )
+    token = raw.get("token", "")
+    database = raw.get("database", "")
+    conn_str = f"md:{database}" if database else "md:"
+    conn = duckdb.connect(conn_str, config={"motherduck_token": token})
+    return conn
 
 
 def get_connection(name: str) -> "Connection | GCPConnection":

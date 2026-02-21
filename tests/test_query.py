@@ -190,6 +190,250 @@ class TestQueryDuckDB:
 
 
 # ---------------------------------------------------------------------------
+# Databricks
+# ---------------------------------------------------------------------------
+
+class TestQueryDatabricks:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, databricks_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_db": "databricks"}),
+        )
+        monkeypatch.setenv("my_db", json.dumps(databricks_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_cursor = MagicMock()
+        mock_cursor.description = [("id",), ("name",)]
+        mock_cursor.fetchall.return_value = [(1, "a"), (2, "b")]
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_databricks", return_value=mock_client):
+            result = query("SELECT * FROM users", "my_db")
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["id", "name"]
+        mock_cursor.close.assert_called_once()
+
+    def test_ddl_returns_none(self):
+        mock_cursor = MagicMock()
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_databricks", return_value=mock_client):
+            result = query("CREATE TABLE foo (id INT)", "my_db")
+
+        assert result is None
+        mock_cursor.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# ClickHouse
+# ---------------------------------------------------------------------------
+
+class TestQueryClickHouse:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, clickhouse_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_ch": "clickhouse"}),
+        )
+        monkeypatch.setenv("my_ch", json.dumps(clickhouse_connection_json))
+
+    def test_select_returns_dataframe(self):
+        mock_result = MagicMock()
+        mock_result.result_rows = [(1, "a"), (2, "b")]
+        mock_result.column_names = ["id", "name"]
+
+        mock_client = MagicMock()
+        mock_client.query.return_value = mock_result
+
+        with patch("bruin._connection._create_clickhouse", return_value=mock_client):
+            result = query("SELECT * FROM users", "my_ch")
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["id", "name"]
+
+    def test_ddl_returns_none(self):
+        mock_client = MagicMock()
+
+        with patch("bruin._connection._create_clickhouse", return_value=mock_client):
+            result = query("CREATE TABLE foo (id Int32)", "my_ch")
+
+        assert result is None
+        mock_client.command.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# SQLite
+# ---------------------------------------------------------------------------
+
+class TestQuerySQLite:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, sqlite_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_sqlite": "sqlite"}),
+        )
+        monkeypatch.setenv("my_sqlite", json.dumps(sqlite_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        """SQLite uses pd.read_sql path — test with real sqlite3."""
+        with patch("pandas.read_sql", return_value=sample_df) as mock_read:
+            result = query("SELECT 1", "my_sqlite")
+
+        _assert_annotated(mock_read.call_args, "SELECT 1")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_returns_none(self):
+        result = query("CREATE TABLE IF NOT EXISTS test_tbl (id INTEGER)", "my_sqlite")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Athena (uses pd.read_sql path)
+# ---------------------------------------------------------------------------
+
+class TestQueryAthena:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, athena_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_athena": "athena"}))
+        monkeypatch.setenv("my_athena", json.dumps(athena_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_athena", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df) as mock_read:
+                result = query("SELECT 1", "my_athena")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_does_not_commit(self):
+        mock_cursor = MagicMock()
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+        with patch("bruin._connection._create_athena", return_value=mock_client):
+            result = query("CREATE TABLE foo (id INT)", "my_athena")
+        assert result is None
+        mock_client.commit.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Trino (uses pd.read_sql path, no commit)
+# ---------------------------------------------------------------------------
+
+class TestQueryTrino:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, trino_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_trino": "trino"}))
+        monkeypatch.setenv("my_trino", json.dumps(trino_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_trino", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_trino")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_does_not_commit(self):
+        mock_cursor = MagicMock()
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+        with patch("bruin._connection._create_trino", return_value=mock_client):
+            result = query("INSERT INTO foo VALUES (1)", "my_trino")
+        assert result is None
+        mock_client.commit.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# MotherDuck (uses duckdb path)
+# ---------------------------------------------------------------------------
+
+class TestQueryMotherDuck:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, motherduck_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_md": "motherduck"}))
+        monkeypatch.setenv("my_md", json.dumps(motherduck_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        mock_client.execute.return_value.fetchdf.return_value = sample_df
+        with patch("bruin._connection._create_motherduck", return_value=mock_client):
+            result = query("SELECT 1", "my_md")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_returns_none(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_motherduck", return_value=mock_client):
+            result = query("DROP TABLE foo", "my_md")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# MSSQL
+# ---------------------------------------------------------------------------
+
+class TestQueryMSSQL:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, mssql_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_mssql": "mssql"}))
+        monkeypatch.setenv("my_mssql", json.dumps(mssql_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_mssql")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_cursor = MagicMock()
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            result = query("DELETE FROM foo WHERE id = 1", "my_mssql")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# MySQL
+# ---------------------------------------------------------------------------
+
+class TestQueryMySQL:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, mysql_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_mysql": "mysql"}))
+        monkeypatch.setenv("my_mysql", json.dumps(mysql_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_mysql", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_mysql")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+
+# ---------------------------------------------------------------------------
+# Synapse (reuses MSSQL path)
+# ---------------------------------------------------------------------------
+
+class TestQuerySynapse:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, mssql_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_syn": "synapse"}))
+        monkeypatch.setenv("my_syn", json.dumps(mssql_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_syn")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+
+# ---------------------------------------------------------------------------
 # Default connection from BRUIN_CONNECTION
 # ---------------------------------------------------------------------------
 
@@ -277,6 +521,21 @@ class TestReturnsData:
         from bruin._query import _returns_data
         sql = "-- @bruin.config: {}\nCREATE TABLE foo (id INT)"
         assert _returns_data(sql) is False
+
+    @pytest.mark.parametrize("sql", [
+        "WITH cte AS (SELECT id FROM staging) INSERT INTO target SELECT * FROM cte",
+        "WITH cte AS (SELECT 1) UPDATE foo SET x = 1",
+        "WITH cte AS (SELECT 1) DELETE FROM foo WHERE id IN (SELECT id FROM cte)",
+        "WITH cte AS (SELECT 1) MERGE INTO target USING cte ON target.id = cte.id",
+    ])
+    def test_cte_dml_not_data_returning(self, sql):
+        from bruin._query import _returns_data
+        assert _returns_data(sql) is False
+
+    def test_cte_select_is_data_returning(self):
+        from bruin._query import _returns_data
+        sql = "WITH cte AS (SELECT 1) SELECT * FROM cte"
+        assert _returns_data(sql) is True
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,7 @@ bruin-sdk[all]          # Everything
 ```python
 """ @bruin
 name: my_asset
+connection: bigquery_conn
 secrets:
     - key: bigquery_conn
 @bruin """
@@ -182,7 +183,7 @@ from bruin import get_connection
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Connection name as defined in `.bruin.yml` and injected via `secrets` |
+| `name` | `str` | Connection name as defined in `.bruin.yml` (auto-injected from `connection:` or listed in `secrets`) |
 
 **Returns:** `Connection` or `GCPConnection` depending on the connection type.
 
@@ -294,34 +295,37 @@ conn.client
 
 ## Asset Setup
 
-The SDK reads connection data from environment variables that Bruin injects. To make a connection available in your Python asset, use the `secrets` key in your asset definition:
-
-```python
-""" @bruin
-name: my_asset
-secrets:
-    - key: my_bigquery
-@bruin """
-
-from bruin import get_connection
-
-conn = get_connection("my_bigquery")
-```
-
-For the default connection (used by `query()` when no `connection` argument is given), set the `connection` field:
+When you set the `connection` field in your asset definition, Bruin automatically injects the connection's credentials — no need to list it in `secrets`:
 
 ```python
 """ @bruin
 name: my_asset
 connection: my_bigquery
-secrets:
-    - key: my_bigquery
 @bruin """
 
 from bruin import query
 
 # Uses my_bigquery automatically
 df = query("SELECT * FROM users")
+```
+
+If you need additional connections beyond the default, add them to `secrets`:
+
+```python
+""" @bruin
+name: my_asset
+connection: my_bigquery
+secrets:
+    - key: my_postgres
+@bruin """
+
+from bruin import query, get_connection
+
+# Default connection (my_bigquery)
+df = query("SELECT * FROM users")
+
+# Additional connection via secrets
+pg = get_connection("my_postgres")
 ```
 
 ---
@@ -334,8 +338,6 @@ df = query("SELECT * FROM users")
 """ @bruin
 name: analytics.daily_events
 connection: my_bigquery
-secrets:
-    - key: my_bigquery
 @bruin """
 
 from bruin import query, context
@@ -394,8 +396,6 @@ variables:
 """ @bruin
 name: marketing.segment_report
 connection: my_snowflake
-secrets:
-    - key: my_snowflake
 @bruin """
 
 from bruin import query, context
@@ -418,8 +418,6 @@ print(f"Found {len(df)} {segment} customers in last {lookback} days")
 """ @bruin
 name: setup.create_tables
 connection: my_postgres
-secrets:
-    - key: my_postgres
 @bruin """
 
 from bruin import query
