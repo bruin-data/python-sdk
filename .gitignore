@@ -1,0 +1,8 @@
+ANALYSIS.md
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.pyc
