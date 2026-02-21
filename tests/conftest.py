@@ -224,3 +224,19 @@ def vertica_connection_json():
         "password": "s3cret",
         "database": "analytics",
     }
+
+
+@pytest.fixture
+def google_sheets_connection_json():
+    """Standalone Google Sheets connection payload (service_account_json is double-serialized)."""
+    sa_info = {
+        "type": "service_account",
+        "project_id": "my-gcp-project",
+        "private_key_id": "key-id-123",
+        "private_key": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n",
+        "client_email": "sa@my-gcp-project.iam.gserviceaccount.com",
+        "client_id": "123456789",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+    }
+    return {"service_account_json": json.dumps(sa_info)}
