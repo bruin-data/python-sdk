@@ -7,8 +7,10 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,7 +26,6 @@ jobs:
               print(match.group(1))
           ")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check if tag exists
         id: check
@@ -45,3 +46,17 @@ jobs:
           gh release create "v${{ steps.version.outputs.version }}" \
             --title "v${{ steps.version.outputs.version }}" \
             --generate-notes
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.exists == 'false'
+        with:
+          python-version: "3.13"
+
+      - name: Build and publish to PyPI
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          pip install build
+          python -m build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.check.outputs.exists == 'false'
