@@ -70,6 +70,7 @@ class GCPConnection(Connection):
         super().__init__(name, "google_cloud_platform", raw)
         self._credentials = None
         self._bigquery_client = None
+        self._sheets_client = None
 
     def _uses_adc(self) -> bool:
         """Return True when the connection is configured for Application Default Credentials."""
@@ -145,15 +146,32 @@ class GCPConnection(Connection):
         return self._bigquery_client
 
     def sheets(self):
-        """Return an authorized pygsheets client."""
-        try:
-            import pygsheets
-        except ImportError:
-            raise ImportError(
-                "Install bruin-sdk[sheets] to use Google Sheets connections: "
-                "pip install 'bruin-sdk[sheets]'"
+        """Return a cached, authorized pygsheets client with Sheets + Drive scopes."""
+        if self._sheets_client is None:
+            try:
+                import pygsheets
+            except ImportError:
+                raise ImportError(
+                    "Install bruin-sdk[sheets] to use Google Sheets connections: "
+                    "pip install 'bruin-sdk[sheets]'"
+                )
+            _SHEETS_SCOPES = (
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive",
             )
-        return pygsheets.authorize(custom_credentials=self.credentials)
+            scoped = self.credentials.with_scopes(_SHEETS_SCOPES)
+            self._sheets_client = pygsheets.authorize(custom_credentials=scoped)
+        return self._sheets_client
+
+    def read_sheet(self, spreadsheet, worksheet="Sheet1"):
+        """Read a Google Sheets worksheet into a pandas DataFrame."""
+        from bruin._sheets import _read_sheet_impl
+        return _read_sheet_impl(self, spreadsheet, worksheet)
+
+    def write_sheet(self, df, spreadsheet, worksheet="Sheet1", fit=True):
+        """Write a pandas DataFrame to a Google Sheets worksheet."""
+        from bruin._sheets import _write_sheet_impl
+        _write_sheet_impl(self, df, spreadsheet, worksheet, fit)
 
     def storage(self):
         """Return a google.cloud.storage.Client."""
@@ -175,14 +193,115 @@ class GCPConnection(Connection):
         return self.bigquery()
 
     def close(self):
-        """Close the BigQuery client if it was initialized."""
+        """Close the BigQuery and Sheets clients if initialized."""
         if self._bigquery_client is not None:
             logger.debug("Closing BigQuery client for connection '%s'", self.name)
             close = getattr(self._bigquery_client, "close", None)
             if callable(close):
                 close()
             self._bigquery_client = None
+        self._sheets_client = None
         self._credentials = None
+
+
+class GoogleSheetsConnection(Connection):
+    """Standalone Google Sheets connection (mirrors Go CLI's ``google_sheets`` type)."""
+
+    def __init__(self, name: str, raw: dict):
+        super().__init__(name, "google_sheets", raw)
+        self._credentials = None
+        self._sheets_client = None
+
+    def _parse_sa_info(self):
+        """Parse the service account JSON from the connection payload."""
+        sa_json = self.raw.get("service_account_json", "")
+        if not sa_json:
+            sa_file = self.raw.get("service_account_file", "")
+            if sa_file:
+                return sa_file  # sentinel — handled in credentials property
+            return None
+        try:
+            return json.loads(sa_json)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ConnectionParseError(
+                f"Failed to parse service_account_json for '{self.name}': {exc}"
+            ) from exc
+
+    @property
+    def credentials(self):
+        """Return scoped google credentials for Sheets + Drive."""
+        if self._credentials is not None:
+            return self._credentials
+
+        _SCOPES = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+
+        sa_info = self._parse_sa_info()
+
+        if sa_info is None:
+            raise ConnectionParseError(
+                f"Google Sheets connection '{self.name}' has no "
+                f"'service_account_json' or 'service_account_file'."
+            )
+
+        try:
+            from google.oauth2 import service_account
+        except ImportError:
+            raise ImportError(
+                "Install bruin-sdk[sheets] to use Google Sheets connections: "
+                "pip install 'bruin-sdk[sheets]'"
+            )
+
+        if isinstance(sa_info, str):
+            # sa_info is a file path (from service_account_file)
+            self._credentials = service_account.Credentials.from_service_account_file(
+                sa_info, scopes=_SCOPES,
+            )
+        else:
+            self._credentials = service_account.Credentials.from_service_account_info(
+                sa_info, scopes=_SCOPES,
+            )
+
+        logger.debug("Using service account credentials for '%s'", self.name)
+        return self._credentials
+
+    def sheets(self):
+        """Return a cached, authorized pygsheets client."""
+        if self._sheets_client is None:
+            try:
+                import pygsheets
+            except ImportError:
+                raise ImportError(
+                    "Install bruin-sdk[sheets] to use Google Sheets connections: "
+                    "pip install 'bruin-sdk[sheets]'"
+                )
+            self._sheets_client = pygsheets.authorize(custom_credentials=self.credentials)
+        return self._sheets_client
+
+    def read_sheet(self, spreadsheet, worksheet="Sheet1"):
+        """Read a Google Sheets worksheet into a pandas DataFrame."""
+        from bruin._sheets import _read_sheet_impl
+        return _read_sheet_impl(self, spreadsheet, worksheet)
+
+    def write_sheet(self, df, spreadsheet, worksheet="Sheet1", fit=True):
+        """Write a pandas DataFrame to a Google Sheets worksheet."""
+        from bruin._sheets import _write_sheet_impl
+        _write_sheet_impl(self, df, spreadsheet, worksheet, fit)
+
+    @property
+    def client(self):
+        """Alias for sheets() — the primary use case for this connection type."""
+        return self.sheets()
+
+    def close(self):
+        """Clear cached client and credentials."""
+        self._sheets_client = None
+        self._credentials = None
+
+    def __repr__(self):
+        return f"GoogleSheetsConnection(name={self.name!r})"
 
 
 def _create_client(conn_type: str, raw):
@@ -212,7 +331,7 @@ def _create_client(conn_type: str, raw):
     if factory is None:
         raise ConnectionTypeError(
             f"Unsupported connection type '{conn_type}'. "
-            f"Supported types: google_cloud_platform, {', '.join(sorted(factories))}."
+            f"Supported types: google_cloud_platform, google_sheets, {', '.join(sorted(factories))}."
         )
     return factory(raw)
 
@@ -583,5 +702,8 @@ def get_connection(name: str) -> "Connection | GCPConnection":
 
     if conn_type == "google_cloud_platform":
         return GCPConnection(name, raw)
+
+    if conn_type == "google_sheets":
+        return GoogleSheetsConnection(name, raw)
 
     return Connection(name, conn_type, raw)
