@@ -47,6 +47,9 @@ class Connection:
             close()
         self._client = None
 
+    def __repr__(self):
+        return f"Connection(name={self.name!r}, type={self.type!r})"
+
     def __enter__(self):
         return self
 

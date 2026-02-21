@@ -588,6 +588,16 @@ class TestNewConnectionLazyInit:
 # Unsupported type
 # ---------------------------------------------------------------------------
 
+class TestRepr:
+    def test_connection_repr(self):
+        conn = Connection("my_pg", "postgres", {"host": "localhost"})
+        assert repr(conn) == "Connection(name='my_pg', type='postgres')"
+
+    def test_gcp_connection_repr(self):
+        conn = GCPConnection("my_bq", {"project_id": "test"})
+        assert repr(conn) == "Connection(name='my_bq', type='google_cloud_platform')"
+
+
 class TestUnsupportedType:
     def test_raises_connection_type_error(self, monkeypatch):
         monkeypatch.setenv(
