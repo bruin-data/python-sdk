@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 ## Building
@@ -11,8 +11,7 @@ pip install -e ".[dev]"
 The project uses [hatchling](https://hatch.pypa.io/) as the build backend. To build the package locally:
 
 ```bash
-pip install build
-python -m build
+uv build
 ```
 
 This creates both a source distribution and wheel in the `dist/` directory:
@@ -21,12 +20,6 @@ This creates both a source distribution and wheel in the `dist/` directory:
 dist/
   bruin_sdk-0.X.Y.tar.gz
   bruin_sdk-0.X.Y-py3-none-any.whl
-```
-
-To install from the built wheel:
-
-```bash
-pip install dist/bruin_sdk-0.X.Y-py3-none-any.whl
 ```
 
 ## Tests
