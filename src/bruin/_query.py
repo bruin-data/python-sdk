@@ -1,10 +1,8 @@
 import json
 import re
 
-import pandas as pd
-
 from bruin._connection import GCPConnection, get_connection
-from bruin.exceptions import ConnectionTypeError, QueryError
+from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, QueryError
 
 _RETURNS_DATA = re.compile(
     r"^\s*(SELECT|WITH|SHOW|DESCRIBE|DESC|EXPLAIN|TABLE|VALUES)\b",
@@ -45,7 +43,7 @@ def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
         from bruin._context import context
         connection = context.connection
         if connection is None:
-            raise ConnectionTypeError(
+            raise ConnectionNotFoundError(
                 "No connection specified and no default connection set "
                 "(BRUIN_CONNECTION env var is missing). "
                 "Pass a connection name explicitly: query(sql, 'my_connection')"
@@ -73,12 +71,12 @@ def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
 def _returns_data(sql: str) -> bool:
     """Return True if *sql* is a data-returning statement."""
     # Strip leading comments (-- ... and /* ... */) before checking
-    stripped = re.sub(r"--[^\n]*\n", "", sql)
+    stripped = re.sub(r"--[^\n]*(\n|$)", "", sql)
     stripped = re.sub(r"/\*.*?\*/", "", stripped, flags=re.DOTALL)
     return bool(_RETURNS_DATA.match(stripped.strip()))
 
 
-def _execute(conn, sql: str) -> "pd.DataFrame | None":
+def _execute(conn, sql: str):
     if isinstance(conn, GCPConnection):
         client = conn.bigquery()
         job = client.query(sql)
@@ -99,6 +97,7 @@ def _execute(conn, sql: str) -> "pd.DataFrame | None":
 
     if conn.type in ("postgres", "redshift", "mssql", "mysql"):
         if _returns_data(sql):
+            import pandas as pd
             return pd.read_sql(sql, conn.client)
         # For DDL/DML, execute directly
         client = conn.client

@@ -29,9 +29,7 @@ postgres = ["psycopg2-binary"]
 mssql = ["pymssql"]
 mysql = ["mysql-connector-python"]
 duckdb = ["duckdb"]
-aws = ["boto3"]
 redshift = ["psycopg2-binary"]
-databricks = ["databricks-sql-connector"]
 sheets = ["pygsheets", "google-auth"]
 all = [
     "bruin-sdk[bigquery]",
@@ -40,9 +38,7 @@ all = [
     "bruin-sdk[mssql]",
     "bruin-sdk[mysql]",
     "bruin-sdk[duckdb]",
-    "bruin-sdk[aws]",
     "bruin-sdk[redshift]",
-    "bruin-sdk[databricks]",
     "bruin-sdk[sheets]",
 ]
 dev = ["pytest", "pytest-cov"]

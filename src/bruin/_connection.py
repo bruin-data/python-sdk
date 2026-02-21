@@ -34,8 +34,7 @@ class Connection:
         Returns a pandas DataFrame for data-returning statements,
         or None for DDL/DML.
         """
-        from bruin._query import _annotate_sql, _execute, _returns_data
-        from bruin.exceptions import QueryError
+        from bruin._query import _annotate_sql, _execute
 
         if self.type == "generic":
             raise ConnectionTypeError(
@@ -48,6 +47,7 @@ class Connection:
         except ConnectionTypeError:
             raise
         except Exception as exc:
+            from bruin.exceptions import QueryError
             raise QueryError(
                 f"Query failed on connection '{self.name}' ({self.type}): {exc}"
             ) from exc
@@ -61,6 +61,21 @@ class GCPConnection(Connection):
         self._credentials = None
         self._bigquery_client = None
 
+    def _parse_sa_info(self):
+        """Parse the service account JSON from the connection payload."""
+        try:
+            sa_json = self.raw["service_account_json"]
+        except KeyError:
+            raise ConnectionParseError(
+                f"Connection '{self.name}' is missing 'service_account_json' field."
+            )
+        try:
+            return json.loads(sa_json)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise ConnectionParseError(
+                f"Failed to parse service_account_json for '{self.name}': {exc}"
+            ) from exc
+
     @property
     def credentials(self):
         """Return google.oauth2 credentials from the service account JSON."""
@@ -72,7 +87,7 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use GCP credentials: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
-            sa_info = json.loads(self.raw["service_account_json"])
+            sa_info = self._parse_sa_info()
             self._credentials = service_account.Credentials.from_service_account_info(sa_info)
         return self._credentials
 
@@ -86,9 +101,9 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use BigQuery connections: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
-            sa_info = json.loads(self.raw["service_account_json"])
-            self._bigquery_client = bigquery.Client.from_service_account_info(
-                sa_info, project=self.raw.get("project_id"),
+            self._bigquery_client = bigquery.Client(
+                credentials=self.credentials,
+                project=self.raw.get("project_id"),
             )
         return self._bigquery_client
 

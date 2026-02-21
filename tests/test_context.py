@@ -1,7 +1,10 @@
 import datetime
 import json
 
+import pytest
+
 from bruin import context
+from bruin.exceptions import BruinError
 
 
 class TestStartDate:
@@ -136,6 +139,28 @@ class TestVars:
     def test_returns_empty_dict_when_missing(self, monkeypatch):
         monkeypatch.delenv("BRUIN_VARS", raising=False)
         assert context.vars == {}
+
+
+class TestMalformedValues:
+    def test_invalid_date_raises_bruin_error(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_START_DATE", "not-a-date")
+        with pytest.raises(BruinError, match="Invalid BRUIN_START_DATE"):
+            _ = context.start_date
+
+    def test_invalid_datetime_raises_bruin_error(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_START_DATETIME", "garbage")
+        with pytest.raises(BruinError, match="Invalid BRUIN_START_DATETIME"):
+            _ = context.start_datetime
+
+    def test_invalid_vars_json_raises_bruin_error(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", "{bad json")
+        with pytest.raises(BruinError, match="Invalid BRUIN_VARS"):
+            _ = context.vars
+
+    def test_non_dict_vars_raises_bruin_error(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", "[1, 2, 3]")
+        with pytest.raises(BruinError, match="expected a JSON object"):
+            _ = context.vars
 
 
 class TestFreshReads:

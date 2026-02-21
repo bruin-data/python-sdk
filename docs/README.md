@@ -33,9 +33,11 @@ For specific database connections, install the corresponding extras:
 bruin-sdk[bigquery]     # Google BigQuery
 bruin-sdk[snowflake]    # Snowflake
 bruin-sdk[postgres]     # PostgreSQL / Redshift
+bruin-sdk[redshift]     # Redshift (alias for postgres extra)
 bruin-sdk[mssql]        # Microsoft SQL Server
 bruin-sdk[mysql]        # MySQL
 bruin-sdk[duckdb]       # DuckDB
+bruin-sdk[sheets]       # Google Sheets (for GCP connections)
 bruin-sdk[all]          # Everything
 ```
 
@@ -199,7 +201,7 @@ conn.client  # Lazy-initialized database client
 | `google_cloud_platform` | `bigquery.Client` | `bruin-sdk[bigquery]` |
 | `snowflake` | `snowflake.connector.Connection` | `bruin-sdk[snowflake]` |
 | `postgres` | `psycopg2.connection` | `bruin-sdk[postgres]` |
-| `redshift` | `psycopg2.connection` | `bruin-sdk[postgres]` |
+| `redshift` | `psycopg2.connection` | `bruin-sdk[redshift]` |
 | `mssql` | `pymssql.Connection` | `bruin-sdk[mssql]` |
 | `mysql` | `mysql.connector.Connection` | `bruin-sdk[mysql]` |
 | `duckdb` | `duckdb.DuckDBPyConnection` | `bruin-sdk[duckdb]` |

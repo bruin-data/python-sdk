@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 
 from bruin import query
-from bruin._connection import Connection, GCPConnection
-from bruin.exceptions import ConnectionTypeError, QueryError
+from bruin._connection import GCPConnection
+from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, QueryError
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ class TestQueryPostgres:
         mock_client = MagicMock()
 
         with patch("bruin._connection._create_postgres", return_value=mock_client):
-            with patch("bruin._query.pd.read_sql", return_value=sample_df) as mock_read:
+            with patch("pandas.read_sql", return_value=sample_df) as mock_read:
                 result = query("SELECT 1", "my_pg")
 
         _assert_annotated(mock_read.call_args, "SELECT 1")
@@ -207,7 +207,7 @@ class TestDefaultConnection:
 
     def test_raises_when_no_connection_and_no_default(self, monkeypatch):
         monkeypatch.delenv("BRUIN_CONNECTION", raising=False)
-        with pytest.raises(ConnectionTypeError, match="No connection specified"):
+        with pytest.raises(ConnectionNotFoundError, match="No connection specified"):
             query("SELECT 1")
 
 

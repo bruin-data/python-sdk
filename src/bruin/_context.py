@@ -2,6 +2,33 @@ import datetime
 import json
 import os
 
+from bruin.exceptions import BruinError
+
+
+def _parse_date(env_var: str) -> "datetime.date | None":
+    val = os.environ.get(env_var)
+    if val is None:
+        return None
+    try:
+        return datetime.date.fromisoformat(val)
+    except ValueError:
+        raise BruinError(
+            f"Invalid {env_var} value '{val}': expected ISO-8601 date (YYYY-MM-DD)."
+        )
+
+
+def _parse_datetime(env_var: str) -> "datetime.datetime | None":
+    val = os.environ.get(env_var)
+    if val is None:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(val)
+    except ValueError:
+        raise BruinError(
+            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime "
+            f"(YYYY-MM-DDThh:mm:ss)."
+        )
+
 
 class _BruinContext:
     """Lazy accessor for BRUIN_* environment variables injected by ``bruin run``.
@@ -12,38 +39,23 @@ class _BruinContext:
 
     @property
     def start_date(self) -> "datetime.date | None":
-        val = os.environ.get("BRUIN_START_DATE")
-        if val is None:
-            return None
-        return datetime.date.fromisoformat(val)
+        return _parse_date("BRUIN_START_DATE")
 
     @property
     def end_date(self) -> "datetime.date | None":
-        val = os.environ.get("BRUIN_END_DATE")
-        if val is None:
-            return None
-        return datetime.date.fromisoformat(val)
+        return _parse_date("BRUIN_END_DATE")
 
     @property
     def start_datetime(self) -> "datetime.datetime | None":
-        val = os.environ.get("BRUIN_START_DATETIME")
-        if val is None:
-            return None
-        return datetime.datetime.fromisoformat(val)
+        return _parse_datetime("BRUIN_START_DATETIME")
 
     @property
     def end_datetime(self) -> "datetime.datetime | None":
-        val = os.environ.get("BRUIN_END_DATETIME")
-        if val is None:
-            return None
-        return datetime.datetime.fromisoformat(val)
+        return _parse_datetime("BRUIN_END_DATETIME")
 
     @property
     def execution_date(self) -> "datetime.date | None":
-        val = os.environ.get("BRUIN_EXECUTION_DATE")
-        if val is None:
-            return None
-        return datetime.date.fromisoformat(val)
+        return _parse_date("BRUIN_EXECUTION_DATE")
 
     @property
     def run_id(self) -> "str | None":
@@ -70,7 +82,18 @@ class _BruinContext:
         val = os.environ.get("BRUIN_VARS")
         if val is None:
             return {}
-        return json.loads(val)
+        try:
+            parsed = json.loads(val)
+        except json.JSONDecodeError as exc:
+            raise BruinError(
+                f"Invalid BRUIN_VARS value: expected valid JSON. {exc}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise BruinError(
+                f"Invalid BRUIN_VARS value: expected a JSON object, "
+                f"got {type(parsed).__name__}."
+            )
+        return parsed
 
 
 context = _BruinContext()

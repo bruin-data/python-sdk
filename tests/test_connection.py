@@ -183,28 +183,36 @@ class TestConnectionClient:
 # ---------------------------------------------------------------------------
 
 class TestGCPConnection:
-    def test_bigquery_calls_from_service_account_info(self, bq_env, bq_connection_json):
+    def test_bigquery_creates_client_with_credentials(self, bq_env, bq_connection_json):
         import sys
 
         mock_client = MagicMock()
         mock_bq_module = MagicMock()
-        mock_bq_module.Client.from_service_account_info.return_value = mock_client
+        mock_bq_module.Client.return_value = mock_client
 
-        # Pre-populate sys.modules so `from google.cloud import bigquery` resolves
+        mock_sa_module = MagicMock()
+        mock_creds = MagicMock()
+        mock_sa_module.Credentials.from_service_account_info.return_value = mock_creds
+
         mock_google = MagicMock()
         mock_google.cloud.bigquery = mock_bq_module
+        mock_google.oauth2.service_account = mock_sa_module
 
         conn = get_connection("my_bigquery")
         with patch.dict(sys.modules, {
             "google": mock_google,
             "google.cloud": mock_google.cloud,
             "google.cloud.bigquery": mock_bq_module,
+            "google.oauth2": mock_google.oauth2,
+            "google.oauth2.service_account": mock_sa_module,
         }):
             result = conn.bigquery()
 
-        mock_bq_module.Client.from_service_account_info.assert_called_once()
-        call_args = mock_bq_module.Client.from_service_account_info.call_args
-        assert call_args.kwargs.get("project") == bq_connection_json["project_id"]
+        mock_sa_module.Credentials.from_service_account_info.assert_called_once()
+        mock_bq_module.Client.assert_called_once_with(
+            credentials=mock_creds,
+            project=bq_connection_json["project_id"],
+        )
         assert result is mock_client
 
     def test_client_is_alias_for_bigquery(self, bq_env, bq_connection_json):
