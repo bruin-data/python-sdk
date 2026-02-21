@@ -1,16 +1,21 @@
 """Integration tests for BigQuery using real GCP credentials.
 
-Skipped automatically when ``BRUIN_TEST_BQ_*`` env vars are absent.
+Skipped automatically when ``BRUIN_TEST_BQ_PROJECT_ID`` is absent.
 
 Required env vars::
 
     BRUIN_TEST_BQ_PROJECT_ID              – GCP project with BigQuery enabled
+
+Optional env vars::
+
     BRUIN_TEST_BQ_SERVICE_ACCOUNT_JSON    – service-account JSON string
+                                            (falls back to ADC if absent)
 
 BigQuery detection uses ``job.result().schema``: non-empty for SELECT,
 empty for DDL/DML.
 """
 
+import os
 import uuid
 
 import pandas as pd
@@ -25,7 +30,7 @@ pytestmark = requires_bigquery
 @pytest.fixture
 def _test_table(bq_env):
     """Yield a unique fully-qualified table name and drop it after the test."""
-    project = __import__("os").environ["BRUIN_TEST_BQ_PROJECT_ID"]
+    project = os.environ["BRUIN_TEST_BQ_PROJECT_ID"]
     table = f"{project}._bruin_sdk_test.integ_{uuid.uuid4().hex[:8]}"
     yield table
     try:
@@ -37,7 +42,7 @@ def _test_table(bq_env):
 @pytest.fixture(autouse=True)
 def _ensure_dataset(bq_env):
     """Create the scratch dataset if it doesn't exist (idempotent)."""
-    project = __import__("os").environ["BRUIN_TEST_BQ_PROJECT_ID"]
+    project = os.environ["BRUIN_TEST_BQ_PROJECT_ID"]
     try:
         query(
             f"CREATE SCHEMA IF NOT EXISTS `{project}._bruin_sdk_test`",

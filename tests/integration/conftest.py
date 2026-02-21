@@ -49,30 +49,32 @@ def duckdb_env(monkeypatch):
 # BigQuery  (requires real GCP credentials)
 # ---------------------------------------------------------------------------
 
-_BQ_REQUIRED = ("BRUIN_TEST_BQ_PROJECT_ID", "BRUIN_TEST_BQ_SERVICE_ACCOUNT_JSON")
-
 requires_bigquery = pytest.mark.skipif(
-    not all(os.environ.get(v) for v in _BQ_REQUIRED),
-    reason="Missing env vars: " + ", ".join(
-        v for v in _BQ_REQUIRED if not os.environ.get(v)
-    ),
+    not os.environ.get("BRUIN_TEST_BQ_PROJECT_ID"),
+    reason="Missing env var: BRUIN_TEST_BQ_PROJECT_ID",
 )
 
 
 @pytest.fixture
 def bq_env(monkeypatch):
-    """Set up a BigQuery connection from ``BRUIN_TEST_BQ_*`` env vars."""
+    """Set up a BigQuery connection from ``BRUIN_TEST_BQ_*`` env vars.
+
+    Only ``BRUIN_TEST_BQ_PROJECT_ID`` is required.  When
+    ``BRUIN_TEST_BQ_SERVICE_ACCOUNT_JSON`` is absent the SDK falls back
+    to Application Default Credentials (``gcloud auth application-default login``).
+    """
     project_id = os.environ["BRUIN_TEST_BQ_PROJECT_ID"]
-    sa_json = os.environ["BRUIN_TEST_BQ_SERVICE_ACCOUNT_JSON"]
+    sa_json = os.environ.get("BRUIN_TEST_BQ_SERVICE_ACCOUNT_JSON", "")
+
+    conn_payload = {"project_id": project_id}
+    if sa_json:
+        conn_payload["service_account_json"] = sa_json
 
     monkeypatch.setenv(
         "BRUIN_CONNECTION_TYPES",
         json.dumps({"test_bq": "google_cloud_platform"}),
     )
-    monkeypatch.setenv("test_bq", json.dumps({
-        "project_id": project_id,
-        "service_account_json": sa_json,
-    }))
+    monkeypatch.setenv("test_bq", json.dumps(conn_payload))
 
 
 # ---------------------------------------------------------------------------
