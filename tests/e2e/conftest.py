@@ -12,9 +12,7 @@ def _find_bruin():
         return explicit
 
     # 2. Dev build from the sibling bruin repo
-    repo_bin = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "bruin", "bin", "bruin"
-    )
+    repo_bin = os.path.join(os.path.dirname(__file__), "..", "..", "..", "bruin", "bin", "bruin")
     repo_bin = os.path.normpath(repo_bin)
     if os.path.isfile(repo_bin) and os.access(repo_bin, os.X_OK):
         return repo_bin

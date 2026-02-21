@@ -8,16 +8,42 @@ from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, Query
 logger = logging.getLogger("bruin")
 
 # Connection types that use the generic PEP 249 (DBAPI) cursor path.
-_DBAPI_TYPES = frozenset((
-    "postgres", "redshift", "mssql", "synapse", "fabric", "mysql",
-    "athena", "trino", "sqlite", "oracle", "db2", "hana", "spanner", "vertica",
-))
+_DBAPI_TYPES = frozenset(
+    (
+        "postgres",
+        "redshift",
+        "mssql",
+        "synapse",
+        "fabric",
+        "mysql",
+        "athena",
+        "trino",
+        "sqlite",
+        "oracle",
+        "db2",
+        "hana",
+        "spanner",
+        "vertica",
+    )
+)
 
 # Subset of _DBAPI_TYPES that require an explicit commit() for DDL/DML.
-_TRANSACTIONAL = frozenset((
-    "postgres", "redshift", "mssql", "synapse", "fabric", "mysql",
-    "sqlite", "oracle", "db2", "hana", "spanner", "vertica",
-))
+_TRANSACTIONAL = frozenset(
+    (
+        "postgres",
+        "redshift",
+        "mssql",
+        "synapse",
+        "fabric",
+        "mysql",
+        "sqlite",
+        "oracle",
+        "db2",
+        "hana",
+        "spanner",
+        "vertica",
+    )
+)
 
 
 def _annotate_sql(sql: str) -> str:
@@ -35,15 +61,15 @@ def _annotate_sql(sql: str) -> str:
 def _run_query(conn, sql: str):
     """Core query execution shared by ``query()`` and ``Connection.query()``."""
     if conn.type == "generic":
-        raise ConnectionTypeError(
-            f"Cannot run queries against generic connection '{conn.name}'."
-        )
+        raise ConnectionTypeError(f"Cannot run queries against generic connection '{conn.name}'.")
 
     annotated = _annotate_sql(sql)
 
     logger.debug(
         "Executing query on '%s' (%s, %d chars)",
-        conn.name, conn.type, len(sql),
+        conn.name,
+        conn.type,
+        len(sql),
     )
 
     t0 = time.monotonic()
@@ -52,15 +78,16 @@ def _run_query(conn, sql: str):
     except ConnectionTypeError:
         raise
     except Exception as exc:
-        raise QueryError(
-            f"Query failed on connection '{conn.name}' ({conn.type}): {exc}"
-        ) from exc
+        raise QueryError(f"Query failed on connection '{conn.name}' ({conn.type}): {exc}") from exc
 
     elapsed = time.monotonic() - t0
     if result is not None:
         logger.debug(
             "Query on '%s' complete → %d rows x %d cols in %.2fs",
-            conn.name, len(result), len(result.columns), elapsed,
+            conn.name,
+            len(result),
+            len(result.columns),
+            elapsed,
         )
     else:
         logger.debug("Query on '%s' complete (no result set) in %.2fs", conn.name, elapsed)
@@ -68,7 +95,7 @@ def _run_query(conn, sql: str):
     return result
 
 
-def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
+def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":  # noqa: F821
     """Execute *sql* against a Bruin-managed connection.
 
     Parameters
@@ -87,6 +114,7 @@ def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":
     """
     if connection is None:
         from bruin._context import context
+
         connection = context.connection
         if connection is None:
             raise ConnectionNotFoundError(
@@ -120,6 +148,7 @@ def _execute(conn, sql: str):
 
     if conn.type in _DBAPI_TYPES:
         import pandas as pd
+
         client = conn.client
         cur = client.cursor()
         try:
@@ -145,6 +174,7 @@ def _execute(conn, sql: str):
             cur.execute(sql)
             if cur.description:
                 import pandas as pd
+
                 cols = [desc[0] for desc in cur.description]
                 return pd.DataFrame(cur.fetchall(), columns=cols)
             return None
@@ -155,12 +185,11 @@ def _execute(conn, sql: str):
         result = conn.client.query(sql)
         if result.column_names:
             import pandas as pd
+
             return pd.DataFrame(
                 result.result_rows,
                 columns=result.column_names,
             )
         return None
 
-    raise ConnectionTypeError(
-        f"query() does not support connection type '{conn.type}'."
-    )
+    raise ConnectionTypeError(f"query() does not support connection type '{conn.type}'.")

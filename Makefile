@@ -1,4 +1,4 @@
-.PHONY: setup build test test-unit test-integration test-duckdb test-bigquery test-snowflake clean
+.PHONY: setup build test test-unit test-integration test-duckdb test-bigquery test-snowflake lint format clean
 
 setup:
 	uv sync --extra dev --extra all
@@ -23,6 +23,13 @@ test-bigquery:
 
 test-snowflake:
 	uv run pytest tests/integration/test_snowflake.py -v
+
+lint:
+	uv run ruff check .
+
+format:
+	uv run ruff format .
+	uv run ruff check --fix .
 
 clean:
 	rm -rf dist/ build/ *.egg-info src/*.egg-info

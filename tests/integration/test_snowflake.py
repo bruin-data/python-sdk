@@ -36,9 +36,7 @@ _SF_REQUIRED = (
 
 pytestmark = pytest.mark.skipif(
     not all(os.environ.get(v) for v in _SF_REQUIRED),
-    reason="Missing env vars: " + ", ".join(
-        v for v in _SF_REQUIRED if not os.environ.get(v)
-    ),
+    reason="Missing env vars: " + ", ".join(v for v in _SF_REQUIRED if not os.environ.get(v)),
 )
 
 

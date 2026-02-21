@@ -19,10 +19,10 @@ import os
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Auto-apply the integration marker to every test collected in this directory
 # ---------------------------------------------------------------------------
+
 
 def pytest_collection_modifyitems(items):
     for item in items:
@@ -33,6 +33,7 @@ def pytest_collection_modifyitems(items):
 # ---------------------------------------------------------------------------
 # DuckDB  (no credentials needed — always available if duckdb is installed)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def duckdb_env(monkeypatch):
@@ -48,6 +49,7 @@ def duckdb_env(monkeypatch):
 # ---------------------------------------------------------------------------
 # BigQuery  (requires real GCP credentials)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def bq_env(monkeypatch):
@@ -75,6 +77,7 @@ def bq_env(monkeypatch):
 # Snowflake  (requires real Snowflake credentials)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sf_env(monkeypatch):
     """Set up a Snowflake connection from ``BRUIN_TEST_SF_*`` env vars."""
@@ -82,12 +85,17 @@ def sf_env(monkeypatch):
         "BRUIN_CONNECTION_TYPES",
         json.dumps({"test_sf": "snowflake"}),
     )
-    monkeypatch.setenv("test_sf", json.dumps({
-        "account": os.environ["BRUIN_TEST_SF_ACCOUNT"],
-        "username": os.environ["BRUIN_TEST_SF_USERNAME"],
-        "password": os.environ["BRUIN_TEST_SF_PASSWORD"],
-        "database": os.environ["BRUIN_TEST_SF_DATABASE"],
-        "warehouse": os.environ["BRUIN_TEST_SF_WAREHOUSE"],
-        "schema": os.environ.get("BRUIN_TEST_SF_SCHEMA", "PUBLIC"),
-        "role": os.environ.get("BRUIN_TEST_SF_ROLE", ""),
-    }))
+    monkeypatch.setenv(
+        "test_sf",
+        json.dumps(
+            {
+                "account": os.environ["BRUIN_TEST_SF_ACCOUNT"],
+                "username": os.environ["BRUIN_TEST_SF_USERNAME"],
+                "password": os.environ["BRUIN_TEST_SF_PASSWORD"],
+                "database": os.environ["BRUIN_TEST_SF_DATABASE"],
+                "warehouse": os.environ["BRUIN_TEST_SF_WAREHOUSE"],
+                "schema": os.environ.get("BRUIN_TEST_SF_SCHEMA", "PUBLIC"),
+                "role": os.environ.get("BRUIN_TEST_SF_ROLE", ""),
+            }
+        ),
+    )

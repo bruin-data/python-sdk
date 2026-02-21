@@ -16,9 +16,7 @@ def _parse_date(env_var: str) -> "datetime.date | None":
     try:
         return datetime.date.fromisoformat(val)
     except ValueError:
-        raise BruinError(
-            f"Invalid {env_var} value '{val}': expected ISO-8601 date (YYYY-MM-DD)."
-        )
+        raise BruinError(f"Invalid {env_var} value '{val}': expected ISO-8601 date (YYYY-MM-DD).")
 
 
 def _parse_datetime(env_var: str) -> "datetime.datetime | None":
@@ -30,8 +28,7 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
         return datetime.datetime.fromisoformat(val)
     except ValueError:
         raise BruinError(
-            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime "
-            f"(YYYY-MM-DDThh:mm:ss)."
+            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime (YYYY-MM-DDThh:mm:ss)."
         )
 
 
@@ -90,13 +87,10 @@ class _BruinContext:
         try:
             parsed = json.loads(val)
         except json.JSONDecodeError as exc:
-            raise BruinError(
-                f"Invalid BRUIN_VARS value: expected valid JSON. {exc}"
-            ) from exc
+            raise BruinError(f"Invalid BRUIN_VARS value: expected valid JSON. {exc}") from exc
         if not isinstance(parsed, dict):
             raise BruinError(
-                f"Invalid BRUIN_VARS value: expected a JSON object, "
-                f"got {type(parsed).__name__}."
+                f"Invalid BRUIN_VARS value: expected a JSON object, got {type(parsed).__name__}."
             )
         return parsed
 

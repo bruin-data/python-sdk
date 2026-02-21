@@ -32,7 +32,7 @@ class Connection:
             self._client = _create_client(self.type, self.raw)
         return self._client
 
-    def query(self, sql: str) -> "pd.DataFrame | None":
+    def query(self, sql: str) -> "pd.DataFrame | None":  # noqa: F821
         """Execute *sql* on this connection.
 
         Returns a pandas DataFrame for data-returning statements,
@@ -136,7 +136,8 @@ class GCPConnection(Connection):
                 )
             logger.debug(
                 "Creating BigQuery client for '%s' (project=%s)",
-                self.name, self.raw.get("project_id"),
+                self.name,
+                self.raw.get("project_id"),
             )
             self._bigquery_client = bigquery.Client(
                 credentials=self.credentials,
@@ -239,8 +240,10 @@ def _create_snowflake(raw: dict):
     private_key_pem = raw.get("private_key", "")
     if private_key_pem:
         from cryptography.hazmat.primitives import serialization
+
         p_key = serialization.load_pem_private_key(
-            private_key_pem.encode(), password=None,
+            private_key_pem.encode(),
+            password=None,
         )
         kwargs["private_key"] = p_key.private_bytes(
             encoding=serialization.Encoding.DER,
@@ -294,8 +297,7 @@ def _create_mssql(raw: dict):
         import pymssql
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[mssql] to use MSSQL connections: "
-            "pip install 'bruin-sdk[mssql]'"
+            "Install bruin-sdk[mssql] to use MSSQL connections: pip install 'bruin-sdk[mssql]'"
         )
     return pymssql.connect(
         server=raw["host"],
@@ -311,8 +313,7 @@ def _create_mysql(raw: dict):
         import mysql.connector
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[mysql] to use MySQL connections: "
-            "pip install 'bruin-sdk[mysql]'"
+            "Install bruin-sdk[mysql] to use MySQL connections: pip install 'bruin-sdk[mysql]'"
         )
     return mysql.connector.connect(
         host=raw["host"],
@@ -328,8 +329,7 @@ def _create_duckdb(raw: dict):
         import duckdb
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[duckdb] to use DuckDB connections: "
-            "pip install 'bruin-sdk[duckdb]'"
+            "Install bruin-sdk[duckdb] to use DuckDB connections: pip install 'bruin-sdk[duckdb]'"
         )
     return duckdb.connect(raw.get("path", ":memory:"))
 
@@ -374,8 +374,7 @@ def _create_athena(raw: dict):
         from pyathena import connect as athena_connect
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[athena] to use Athena connections: "
-            "pip install 'bruin-sdk[athena]'"
+            "Install bruin-sdk[athena] to use Athena connections: pip install 'bruin-sdk[athena]'"
         )
     kwargs = {
         "s3_staging_dir": raw.get("query_results_path", ""),
@@ -397,8 +396,7 @@ def _create_trino(raw: dict):
         from trino.dbapi import connect as trino_connect
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[trino] to use Trino connections: "
-            "pip install 'bruin-sdk[trino]'"
+            "Install bruin-sdk[trino] to use Trino connections: pip install 'bruin-sdk[trino]'"
         )
     kwargs = {
         "host": raw["host"],
@@ -409,6 +407,7 @@ def _create_trino(raw: dict):
     }
     if raw.get("password"):
         from trino.auth import BasicAuthentication
+
         kwargs["auth"] = BasicAuthentication(raw.get("username", ""), raw["password"])
         kwargs["http_scheme"] = "https"
     return trino_connect(**kwargs)
@@ -416,6 +415,7 @@ def _create_trino(raw: dict):
 
 def _create_sqlite(raw: dict):
     import sqlite3
+
     return sqlite3.connect(raw.get("path", ":memory:"))
 
 
@@ -439,8 +439,7 @@ def _create_oracle(raw: dict):
         import oracledb
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[oracle] to use Oracle connections: "
-            "pip install 'bruin-sdk[oracle]'"
+            "Install bruin-sdk[oracle] to use Oracle connections: pip install 'bruin-sdk[oracle]'"
         )
     kwargs = {
         "user": raw["username"],
@@ -460,8 +459,7 @@ def _create_db2(raw: dict):
         import ibm_db_dbi
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[db2] to use DB2 connections: "
-            "pip install 'bruin-sdk[db2]'"
+            "Install bruin-sdk[db2] to use DB2 connections: pip install 'bruin-sdk[db2]'"
         )
     conn_str = (
         f"DATABASE={raw.get('database', '')};"
@@ -479,8 +477,7 @@ def _create_hana(raw: dict):
         from hdbcli import dbapi as hana_dbapi
     except ImportError:
         raise ImportError(
-            "Install bruin-sdk[hana] to use SAP HANA connections: "
-            "pip install 'bruin-sdk[hana]'"
+            "Install bruin-sdk[hana] to use SAP HANA connections: pip install 'bruin-sdk[hana]'"
         )
     return hana_dbapi.connect(
         address=raw["host"],
@@ -544,16 +541,13 @@ def get_connection(name: str) -> "Connection | GCPConnection":
     types_raw = os.environ.get("BRUIN_CONNECTION_TYPES")
     if types_raw is None:
         raise ConnectionNotFoundError(
-            f"BRUIN_CONNECTION_TYPES env var is not set. "
-            f"Are you running inside 'bruin run'?"
+            "BRUIN_CONNECTION_TYPES env var is not set. Are you running inside 'bruin run'?"
         )
 
     try:
         type_map = json.loads(types_raw)
     except (json.JSONDecodeError, TypeError) as exc:
-        raise ConnectionParseError(
-            f"Failed to parse BRUIN_CONNECTION_TYPES: {exc}"
-        ) from exc
+        raise ConnectionParseError(f"Failed to parse BRUIN_CONNECTION_TYPES: {exc}") from exc
 
     conn_type = type_map.get(name)
     if conn_type is None:
@@ -567,8 +561,7 @@ def get_connection(name: str) -> "Connection | GCPConnection":
     raw_value = os.environ.get(name)
     if raw_value is None:
         raise ConnectionNotFoundError(
-            f"Connection '{name}' is declared in BRUIN_CONNECTION_TYPES but "
-            f"its env var is not set."
+            f"Connection '{name}' is declared in BRUIN_CONNECTION_TYPES but its env var is not set."
         )
 
     if conn_type == "generic":

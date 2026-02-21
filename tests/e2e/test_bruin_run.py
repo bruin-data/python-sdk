@@ -12,7 +12,6 @@ Run:
 import json
 import os
 import subprocess
-import sys
 import textwrap
 
 import pytest
@@ -29,25 +28,36 @@ def pipeline_dir(tmp_path):
     subprocess.run(["git", "init"], cwd=str(tmp_path), capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "--allow-empty", "-m", "init"],
-        cwd=str(tmp_path), capture_output=True, check=True,
-        env={**os.environ, "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@test.com",
-             "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@test.com"},
+        cwd=str(tmp_path),
+        capture_output=True,
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "test",
+            "GIT_AUTHOR_EMAIL": "test@test.com",
+            "GIT_COMMITTER_NAME": "test",
+            "GIT_COMMITTER_EMAIL": "test@test.com",
+        },
     )
 
     # .bruin.yml (project config — no connections needed for context-only test)
-    (tmp_path / ".bruin.yml").write_text(textwrap.dedent("""\
+    (tmp_path / ".bruin.yml").write_text(
+        textwrap.dedent("""\
         environments:
           default:
             connections: {}
-    """))
+    """)
+    )
 
     # pipeline.yml
     pipeline_dir = tmp_path / "pipeline"
     pipeline_dir.mkdir()
-    (pipeline_dir / "pipeline.yml").write_text(textwrap.dedent("""\
+    (pipeline_dir / "pipeline.yml").write_text(
+        textwrap.dedent("""\
         name: test_pipeline
         schedule: daily
-    """))
+    """)
+    )
 
     assets_dir = pipeline_dir / "assets"
     assets_dir.mkdir()
@@ -96,9 +106,12 @@ class TestContextEnvVars:
         # Run bruin
         result = subprocess.run(
             [
-                bruin_bin, "run",
-                "--start-date", "2024-06-01",
-                "--end-date", "2024-06-02",
+                bruin_bin,
+                "run",
+                "--start-date",
+                "2024-06-01",
+                "--end-date",
+                "2024-06-02",
                 str(pipe_dir / "assets" / "test_context.py"),
             ],
             capture_output=True,
@@ -107,8 +120,12 @@ class TestContextEnvVars:
             timeout=120,
         )
 
-        assert result.returncode == 0, f"bruin run failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        assert output_file.exists(), f"Asset did not produce output file.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        assert result.returncode == 0, (
+            f"bruin run failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert output_file.exists(), (
+            f"Asset did not produce output file.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
         output = json.loads(output_file.read_text())
         assert output["asset_name"] == "test_context"
@@ -152,20 +169,25 @@ class TestConnectionEnvVar:
         (assets_dir / "test_conn.py").write_text(asset_code)
 
         # Use a DuckDB connection — no external credentials needed
-        (root / ".bruin.yml").write_text(textwrap.dedent("""\
+        (root / ".bruin.yml").write_text(
+            textwrap.dedent("""\
             environments:
               default:
                 connections:
                   duckdb:
                     - name: my_duckdb
                       path: ":memory:"
-        """))
+        """)
+        )
 
         result = subprocess.run(
             [
-                bruin_bin, "run",
-                "--start-date", "2024-06-01",
-                "--end-date", "2024-06-02",
+                bruin_bin,
+                "run",
+                "--start-date",
+                "2024-06-01",
+                "--end-date",
+                "2024-06-02",
                 str(pipe_dir / "assets" / "test_conn.py"),
             ],
             capture_output=True,
@@ -174,8 +196,12 @@ class TestConnectionEnvVar:
             timeout=120,
         )
 
-        assert result.returncode == 0, f"bruin run failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        assert output_file.exists(), f"Asset did not produce output file.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        assert result.returncode == 0, (
+            f"bruin run failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        assert output_file.exists(), (
+            f"Asset did not produce output file.\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
         output = json.loads(output_file.read_text())
         assert output["connection"] == "my_duckdb"

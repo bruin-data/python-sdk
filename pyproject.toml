@@ -70,7 +70,7 @@ all = [
     "bruin-sdk[spanner]",
     "bruin-sdk[vertica]",
 ]
-dev = ["pytest", "pytest-cov"]
+dev = ["pytest", "pytest-cov", "ruff"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bruin"]
@@ -80,3 +80,10 @@ testpaths = ["tests"]
 markers = [
     "integration: tests requiring real database connections (may be slow)",
 ]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

@@ -69,6 +69,7 @@ def _assert_annotated(call_args, original_sql):
 # BigQuery
 # ---------------------------------------------------------------------------
 
+
 class TestQueryBigQuery:
     @pytest.mark.usefixtures("_setup_bq")
     def test_select_returns_dataframe(self, sample_df):
@@ -104,6 +105,7 @@ class TestQueryBigQuery:
 # ---------------------------------------------------------------------------
 # Snowflake
 # ---------------------------------------------------------------------------
+
 
 class TestQuerySnowflake:
     @pytest.mark.usefixtures("_setup_snowflake")
@@ -142,6 +144,7 @@ class TestQuerySnowflake:
 # Postgres
 # ---------------------------------------------------------------------------
 
+
 class TestQueryPostgres:
     @pytest.mark.usefixtures("_setup_postgres")
     def test_select_returns_dataframe(self, sample_df):
@@ -179,6 +182,7 @@ class TestQueryPostgres:
 # DuckDB
 # ---------------------------------------------------------------------------
 
+
 class TestQueryDuckDB:
     @pytest.mark.usefixtures("_setup_duckdb")
     def test_select_returns_dataframe(self, sample_df):
@@ -213,6 +217,7 @@ class TestQueryDuckDB:
 # ---------------------------------------------------------------------------
 # Databricks
 # ---------------------------------------------------------------------------
+
 
 class TestQueryDatabricks:
     @pytest.fixture(autouse=True)
@@ -256,6 +261,7 @@ class TestQueryDatabricks:
 # ClickHouse
 # ---------------------------------------------------------------------------
 
+
 class TestQueryClickHouse:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, clickhouse_connection_json):
@@ -296,6 +302,7 @@ class TestQueryClickHouse:
 # SQLite
 # ---------------------------------------------------------------------------
 
+
 class TestQuerySQLite:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, sqlite_connection_json):
@@ -321,6 +328,7 @@ class TestQuerySQLite:
 # ---------------------------------------------------------------------------
 # Athena (uses DBAPI cursor path)
 # ---------------------------------------------------------------------------
+
 
 class TestQueryAthena:
     @pytest.fixture(autouse=True)
@@ -360,6 +368,7 @@ class TestQueryAthena:
 # Trino (uses DBAPI cursor path, no commit)
 # ---------------------------------------------------------------------------
 
+
 class TestQueryTrino:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, trino_connection_json):
@@ -398,6 +407,7 @@ class TestQueryTrino:
 # MotherDuck (uses duckdb path)
 # ---------------------------------------------------------------------------
 
+
 class TestQueryMotherDuck:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, motherduck_connection_json):
@@ -433,6 +443,7 @@ class TestQueryMotherDuck:
 # ---------------------------------------------------------------------------
 # MSSQL
 # ---------------------------------------------------------------------------
+
 
 class TestQueryMSSQL:
     @pytest.fixture(autouse=True)
@@ -472,6 +483,7 @@ class TestQueryMSSQL:
 # MySQL
 # ---------------------------------------------------------------------------
 
+
 class TestQueryMySQL:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, mysql_connection_json):
@@ -496,6 +508,7 @@ class TestQueryMySQL:
 # ---------------------------------------------------------------------------
 # Synapse (reuses MSSQL path)
 # ---------------------------------------------------------------------------
+
 
 class TestQuerySynapse:
     @pytest.fixture(autouse=True)
@@ -727,6 +740,7 @@ class TestQuerySpanner:
 # Default connection from BRUIN_CONNECTION
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultConnection:
     @pytest.mark.usefixtures("_setup_duckdb")
     def test_uses_bruin_connection_env_when_no_connection_arg(self, monkeypatch, sample_df):
@@ -754,6 +768,7 @@ class TestDefaultConnection:
 # @bruin.config annotation
 # ---------------------------------------------------------------------------
 
+
 class TestAnnotation:
     @pytest.mark.usefixtures("_setup_duckdb")
     def test_annotation_includes_asset_and_pipeline(self, monkeypatch, sample_df):
@@ -780,6 +795,7 @@ class TestAnnotation:
 # ---------------------------------------------------------------------------
 # Connection.query()
 # ---------------------------------------------------------------------------
+
 
 class TestConnectionQuery:
     @pytest.mark.usefixtures("_setup_duckdb")
@@ -827,6 +843,7 @@ class TestConnectionQuery:
 # ---------------------------------------------------------------------------
 # Error cases
 # ---------------------------------------------------------------------------
+
 
 class TestQueryErrors:
     @pytest.mark.usefixtures("_setup_generic")

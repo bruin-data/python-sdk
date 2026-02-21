@@ -11,10 +11,10 @@ from bruin.exceptions import (
     ConnectionTypeError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def bq_env(monkeypatch, bq_connection_json):
@@ -57,11 +57,13 @@ def generic_env(monkeypatch):
 def multi_env(monkeypatch, bq_connection_json, snowflake_connection_json):
     monkeypatch.setenv(
         "BRUIN_CONNECTION_TYPES",
-        json.dumps({
-            "my_bigquery": "google_cloud_platform",
-            "my_sf": "snowflake",
-            "slack_webhook": "generic",
-        }),
+        json.dumps(
+            {
+                "my_bigquery": "google_cloud_platform",
+                "my_sf": "snowflake",
+                "slack_webhook": "generic",
+            }
+        ),
     )
     monkeypatch.setenv("my_bigquery", json.dumps(bq_connection_json))
     monkeypatch.setenv("my_sf", json.dumps(snowflake_connection_json))
@@ -71,6 +73,7 @@ def multi_env(monkeypatch, bq_connection_json, snowflake_connection_json):
 # ---------------------------------------------------------------------------
 # get_connection() — happy paths
 # ---------------------------------------------------------------------------
+
 
 class TestGetConnection:
     def test_returns_gcp_connection_for_bigquery(self, bq_env):
@@ -107,6 +110,7 @@ class TestGetConnection:
 # ---------------------------------------------------------------------------
 # get_connection() — error paths
 # ---------------------------------------------------------------------------
+
 
 class TestGetConnectionErrors:
     def test_no_connection_types_env(self, monkeypatch):
@@ -147,6 +151,7 @@ class TestGetConnectionErrors:
 # Connection.client — lazy init
 # ---------------------------------------------------------------------------
 
+
 class TestConnectionClient:
     def test_generic_raises_connection_type_error(self, generic_env):
         conn = get_connection("slack_webhook")
@@ -182,6 +187,7 @@ class TestConnectionClient:
 # Snowflake key-pair auth
 # ---------------------------------------------------------------------------
 
+
 class TestSnowflakeKeyPairAuth:
     def test_keypair_passes_private_key_bytes(self, monkeypatch, snowflake_keypair_connection_json):
         """When private_key PEM is set, DER bytes are passed instead of password."""
@@ -197,9 +203,13 @@ class TestSnowflakeKeyPairAuth:
         mock_connect = MagicMock()
 
         conn = get_connection("my_sf")
-        with patch("snowflake.connector.connect", mock_connect), \
-             patch("cryptography.hazmat.primitives.serialization.load_pem_private_key",
-                   return_value=mock_key):
+        with (
+            patch("snowflake.connector.connect", mock_connect),
+            patch(
+                "cryptography.hazmat.primitives.serialization.load_pem_private_key",
+                return_value=mock_key,
+            ),
+        ):
             _ = conn.client
 
         call_kwargs = mock_connect.call_args[1]
@@ -228,6 +238,7 @@ class TestSnowflakeKeyPairAuth:
 # GCPConnection
 # ---------------------------------------------------------------------------
 
+
 class TestGCPConnection:
     def test_bigquery_creates_client_with_credentials(self, bq_env, bq_connection_json):
         import sys
@@ -245,13 +256,16 @@ class TestGCPConnection:
         mock_google.oauth2.service_account = mock_sa_module
 
         conn = get_connection("my_bigquery")
-        with patch.dict(sys.modules, {
-            "google": mock_google,
-            "google.cloud": mock_google.cloud,
-            "google.cloud.bigquery": mock_bq_module,
-            "google.oauth2": mock_google.oauth2,
-            "google.oauth2.service_account": mock_sa_module,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "google": mock_google,
+                "google.cloud": mock_google.cloud,
+                "google.cloud.bigquery": mock_bq_module,
+                "google.oauth2": mock_google.oauth2,
+                "google.oauth2.service_account": mock_sa_module,
+            },
+        ):
             result = conn.bigquery()
 
         mock_sa_module.Credentials.from_service_account_info.assert_called_once()
@@ -270,7 +284,9 @@ class TestGCPConnection:
 
     def test_credentials_import_error(self, bq_env):
         conn = get_connection("my_bigquery")
-        with patch.dict("sys.modules", {"google.oauth2": None, "google.oauth2.service_account": None}):
+        with patch.dict(
+            "sys.modules", {"google.oauth2": None, "google.oauth2.service_account": None}
+        ):
             with pytest.raises(ImportError, match="bruin-sdk\\[bigquery\\]"):
                 _ = conn.credentials
 
@@ -355,6 +371,7 @@ class TestGCPConnection:
 # Context manager
 # ---------------------------------------------------------------------------
 
+
 class TestConnectionContextManager:
     @patch("bruin._connection._create_postgres")
     def test_context_manager_closes_client(self, mock_create, postgres_env):
@@ -369,7 +386,7 @@ class TestConnectionContextManager:
     @patch("bruin._connection._create_postgres")
     def test_context_manager_without_client_access(self, mock_create, postgres_env):
         """Context manager should not fail if client was never accessed."""
-        with get_connection("my_pg") as conn:
+        with get_connection("my_pg") as _conn:
             pass  # never access .client
 
         mock_create.assert_not_called()
@@ -427,6 +444,7 @@ class TestConnectionContextManager:
 # ---------------------------------------------------------------------------
 # New connection types
 # ---------------------------------------------------------------------------
+
 
 class TestNewConnectionTypes:
     def test_databricks_connection(self, monkeypatch, databricks_connection_json):
@@ -555,6 +573,7 @@ class TestNewConnectionTypes:
 # Import error messages for new types
 # ---------------------------------------------------------------------------
 
+
 class TestNewConnectionImportErrors:
     @patch.dict("sys.modules", {"databricks": None, "databricks.sql": None})
     def test_databricks_import_error(self, monkeypatch, databricks_connection_json):
@@ -644,7 +663,9 @@ class TestNewConnectionImportErrors:
         with pytest.raises(ImportError, match="bruin-sdk\\[vertica\\]"):
             _ = conn.client
 
-    @patch.dict("sys.modules", {"google.cloud.spanner_dbapi": None, "google": None, "google.cloud": None})
+    @patch.dict(
+        "sys.modules", {"google.cloud.spanner_dbapi": None, "google": None, "google.cloud": None}
+    )
     def test_spanner_import_error(self, monkeypatch, spanner_connection_json):
         monkeypatch.setenv(
             "BRUIN_CONNECTION_TYPES",
@@ -659,6 +680,7 @@ class TestNewConnectionImportErrors:
 # ---------------------------------------------------------------------------
 # Lazy client creation for new types
 # ---------------------------------------------------------------------------
+
 
 class TestNewConnectionLazyInit:
     @patch("bruin._connection._create_databricks")
@@ -758,11 +780,13 @@ class TestNewConnectionLazyInit:
 # Factory-level tests (verify actual driver kwargs)
 # ---------------------------------------------------------------------------
 
+
 class TestFactoryArgs:
     def test_oracle_service_name(self, oracle_connection_json):
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"oracledb": mock_mod}):
             from bruin._connection import _create_oracle
+
             _create_oracle(oracle_connection_json)
         mock_mod.connect.assert_called_once_with(
             user="system",
@@ -776,6 +800,7 @@ class TestFactoryArgs:
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"oracledb": mock_mod}):
             from bruin._connection import _create_oracle
+
             _create_oracle(oracle_sid_connection_json)
         mock_mod.connect.assert_called_once_with(
             user="system",
@@ -789,6 +814,7 @@ class TestFactoryArgs:
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"ibm_db_dbi": mock_mod}):
             from bruin._connection import _create_db2
+
             _create_db2(db2_connection_json)
         conn_str = mock_mod.connect.call_args[0][0]
         assert "DATABASE=SAMPLE;" in conn_str
@@ -801,6 +827,7 @@ class TestFactoryArgs:
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"hdbcli": mock_mod, "hdbcli.dbapi": mock_mod.dbapi}):
             from bruin._connection import _create_hana
+
             _create_hana(hana_connection_json)
         mock_mod.dbapi.connect.assert_called_once_with(
             address="hana.example.com",
@@ -814,6 +841,7 @@ class TestFactoryArgs:
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"vertica_python": mock_mod}):
             from bruin._connection import _create_vertica
+
             _create_vertica(vertica_connection_json)
         mock_mod.connect.assert_called_once_with(
             host="vertica.example.com",
@@ -827,12 +855,16 @@ class TestFactoryArgs:
         mock_connect = MagicMock()
         mock_mod = MagicMock()
         mock_mod.connect = mock_connect
-        with patch.dict("sys.modules", {
-            "google": MagicMock(),
-            "google.cloud": MagicMock(),
-            "google.cloud.spanner_dbapi": mock_mod,
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "google": MagicMock(),
+                "google.cloud": MagicMock(),
+                "google.cloud.spanner_dbapi": mock_mod,
+            },
+        ):
             from bruin._connection import _create_spanner
+
             _create_spanner(spanner_connection_json)
         mock_connect.assert_called_once_with(
             instance_id="my-instance",
@@ -844,6 +876,7 @@ class TestFactoryArgs:
         mock_mod = MagicMock()
         with patch.dict("sys.modules", {"psycopg2": mock_mod}):
             from bruin._connection import _create_redshift
+
             _create_redshift({"host": "rs.example.com", "username": "admin", "password": "pw"})
         _, kwargs = mock_mod.connect.call_args
         assert kwargs["port"] == 5439

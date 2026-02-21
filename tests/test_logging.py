@@ -29,8 +29,10 @@ class TestConnectionLogging:
 
     def test_client_creation_logged(self, pg_env, caplog):
         conn = get_connection("my_pg")
-        with caplog.at_level(logging.DEBUG, logger="bruin"), \
-             patch("psycopg2.connect", return_value=MagicMock()):
+        with (
+            caplog.at_level(logging.DEBUG, logger="bruin"),
+            patch("psycopg2.connect", return_value=MagicMock()),
+        ):
             _ = conn.client
 
         assert any("Creating postgres client" in m for m in caplog.messages)
@@ -61,8 +63,10 @@ class TestQueryLogging:
         mock_conn = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        with caplog.at_level(logging.DEBUG, logger="bruin"), \
-             patch("psycopg2.connect", return_value=mock_conn):
+        with (
+            caplog.at_level(logging.DEBUG, logger="bruin"),
+            patch("psycopg2.connect", return_value=mock_conn),
+        ):
             query("SELECT * FROM t")
 
         messages = " ".join(caplog.messages)
@@ -76,8 +80,10 @@ class TestQueryLogging:
         mock_conn = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        with caplog.at_level(logging.DEBUG, logger="bruin"), \
-             patch("psycopg2.connect", return_value=mock_conn):
+        with (
+            caplog.at_level(logging.DEBUG, logger="bruin"),
+            patch("psycopg2.connect", return_value=mock_conn),
+        ):
             query("INSERT INTO t VALUES (1)")
 
         messages = " ".join(caplog.messages)
@@ -90,6 +96,7 @@ class TestContextLogging:
         monkeypatch.setenv("BRUIN_START_DATE", "2025-01-15")
 
         from bruin import context
+
         with caplog.at_level(logging.DEBUG, logger="bruin"):
             context.start_date
 
