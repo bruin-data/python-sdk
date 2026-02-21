@@ -178,9 +178,10 @@ def _create_client(conn_type: str, raw):
     factories = {
         "snowflake": _create_snowflake,
         "postgres": _create_postgres,
-        "redshift": _create_postgres,
+        "redshift": _create_redshift,
         "mssql": _create_mssql,
         "synapse": _create_mssql,
+        "fabric": _create_mssql,
         "mysql": _create_mysql,
         "duckdb": _create_duckdb,
         "databricks": _create_databricks,
@@ -189,6 +190,11 @@ def _create_client(conn_type: str, raw):
         "trino": _create_trino,
         "sqlite": _create_sqlite,
         "motherduck": _create_motherduck,
+        "oracle": _create_oracle,
+        "db2": _create_db2,
+        "hana": _create_hana,
+        "spanner": _create_spanner,
+        "vertica": _create_vertica,
     }
     factory = factories.get(conn_type)
     if factory is None:
@@ -249,7 +255,25 @@ def _create_postgres(raw: dict):
         dbname=raw.get("database", ""),
         user=raw["username"],
         password=raw["password"],
-        sslmode=raw.get("ssl_mode", "disable"),
+        sslmode=raw.get("ssl_mode", "allow"),
+    )
+
+
+def _create_redshift(raw: dict):
+    try:
+        import psycopg2
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[redshift] to use Redshift connections: "
+            "pip install 'bruin-sdk[redshift]'"
+        )
+    return psycopg2.connect(
+        host=raw["host"],
+        port=raw.get("port", 5439),
+        dbname=raw.get("database", ""),
+        user=raw["username"],
+        password=raw["password"],
+        sslmode=raw.get("ssl_mode", "allow"),
     )
 
 
@@ -396,6 +420,107 @@ def _create_motherduck(raw: dict):
     conn_str = f"md:{database}" if database else "md:"
     conn = duckdb.connect(conn_str, config={"motherduck_token": token})
     return conn
+
+
+def _create_oracle(raw: dict):
+    try:
+        import oracledb
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[oracle] to use Oracle connections: "
+            "pip install 'bruin-sdk[oracle]'"
+        )
+    kwargs = {
+        "user": raw["username"],
+        "password": raw["password"],
+        "host": raw["host"],
+        "port": int(raw.get("port", 1521)),
+    }
+    if raw.get("service_name"):
+        kwargs["service_name"] = raw["service_name"]
+    elif raw.get("sid"):
+        kwargs["sid"] = raw["sid"]
+    return oracledb.connect(**kwargs)
+
+
+def _create_db2(raw: dict):
+    try:
+        import ibm_db_dbi
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[db2] to use DB2 connections: "
+            "pip install 'bruin-sdk[db2]'"
+        )
+    conn_str = (
+        f"DATABASE={raw.get('database', '')};"
+        f"HOSTNAME={raw['host']};"
+        f"PORT={raw.get('port', 50000)};"
+        f"PROTOCOL=TCPIP;"
+        f"UID={raw['username']};"
+        f"PWD={raw['password']};"
+    )
+    return ibm_db_dbi.connect(conn_str, "", "")
+
+
+def _create_hana(raw: dict):
+    try:
+        from hdbcli import dbapi as hana_dbapi
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[hana] to use SAP HANA connections: "
+            "pip install 'bruin-sdk[hana]'"
+        )
+    return hana_dbapi.connect(
+        address=raw["host"],
+        port=int(raw.get("port", 30015)),
+        user=raw["username"],
+        password=raw["password"],
+        databaseName=raw.get("database", ""),
+    )
+
+
+def _create_spanner(raw: dict):
+    try:
+        from google.cloud.spanner_dbapi import connect as spanner_connect
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[spanner] to use Cloud Spanner connections: "
+            "pip install 'bruin-sdk[spanner]'"
+        )
+    kwargs = {
+        "instance_id": raw.get("instance_id", ""),
+        "database_id": raw.get("database", ""),
+        "project": raw.get("project_id", ""),
+    }
+    sa_json = raw.get("service_account_json", "")
+    if sa_json:
+        try:
+            from google.oauth2 import service_account
+        except ImportError:
+            raise ImportError(
+                "Install bruin-sdk[spanner] to use Spanner credentials: "
+                "pip install 'bruin-sdk[spanner]'"
+            )
+        sa_info = json.loads(sa_json)
+        kwargs["credentials"] = service_account.Credentials.from_service_account_info(sa_info)
+    return spanner_connect(**kwargs)
+
+
+def _create_vertica(raw: dict):
+    try:
+        import vertica_python
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[vertica] to use Vertica connections: "
+            "pip install 'bruin-sdk[vertica]'"
+        )
+    return vertica_python.connect(
+        host=raw["host"],
+        port=int(raw.get("port", 5433)),
+        user=raw["username"],
+        password=raw["password"],
+        database=raw.get("database", ""),
+    )
 
 
 def get_connection(name: str) -> "Connection | GCPConnection":

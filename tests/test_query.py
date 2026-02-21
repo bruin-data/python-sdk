@@ -1,5 +1,5 @@
 import json
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -431,6 +431,133 @@ class TestQuerySynapse:
             with patch("pandas.read_sql", return_value=sample_df):
                 result = query("SELECT 1", "my_syn")
         pd.testing.assert_frame_equal(result, sample_df)
+
+
+class TestQueryFabric:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, fabric_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_fabric": "fabric"}))
+        monkeypatch.setenv("my_fabric", json.dumps(fabric_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_fabric")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_fabric")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+class TestQueryOracle:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, oracle_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_oracle": "oracle"}))
+        monkeypatch.setenv("my_oracle", json.dumps(oracle_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_oracle", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1 FROM dual", "my_oracle")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_oracle", return_value=mock_client):
+            result = query("CREATE TABLE t (id NUMBER)", "my_oracle")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+class TestQueryDB2:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, db2_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_db2": "db2"}))
+        monkeypatch.setenv("my_db2", json.dumps(db2_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_db2", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1 FROM sysibm.sysdummy1", "my_db2")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_db2", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_db2")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+class TestQueryHANA:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, hana_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_hana": "hana"}))
+        monkeypatch.setenv("my_hana", json.dumps(hana_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_hana", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1 FROM dummy", "my_hana")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_hana", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_hana")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+class TestQueryVertica:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, vertica_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_vertica": "vertica"}))
+        monkeypatch.setenv("my_vertica", json.dumps(vertica_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_vertica", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_vertica")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_vertica", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_vertica")
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+class TestQuerySpanner:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, spanner_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_spanner": "spanner"}))
+        monkeypatch.setenv("my_spanner", json.dumps(spanner_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_spanner", return_value=mock_client):
+            with patch("pandas.read_sql", return_value=sample_df):
+                result = query("SELECT 1", "my_spanner")
+        pd.testing.assert_frame_equal(result, sample_df)
+
+    def test_ddl_commits(self):
+        """Spanner DML/DDL needs commit() — autocommit is off by default."""
+        mock_client = MagicMock()
+        with patch("bruin._connection._create_spanner", return_value=mock_client):
+            result = query("INSERT INTO t (id) VALUES (1)", "my_spanner")
+        assert result is None
+        mock_client.commit.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

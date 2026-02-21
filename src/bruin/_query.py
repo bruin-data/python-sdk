@@ -16,12 +16,14 @@ _CTE_DML = re.compile(
 
 # Connection types that use the generic PEP 249 (DBAPI) cursor/read_sql path.
 _DBAPI_TYPES = frozenset((
-    "postgres", "redshift", "mssql", "synapse", "mysql", "athena", "trino", "sqlite",
+    "postgres", "redshift", "mssql", "synapse", "fabric", "mysql",
+    "athena", "trino", "sqlite", "oracle", "db2", "hana", "spanner", "vertica",
 ))
 
 # Subset of _DBAPI_TYPES that require an explicit commit() for DDL/DML.
 _TRANSACTIONAL = frozenset((
-    "postgres", "redshift", "mssql", "synapse", "mysql", "sqlite",
+    "postgres", "redshift", "mssql", "synapse", "fabric", "mysql",
+    "sqlite", "oracle", "db2", "hana", "spanner", "vertica",
 ))
 
 

@@ -493,6 +493,63 @@ class TestNewConnectionTypes:
         conn = get_connection("my_syn")
         assert conn.type == "synapse"
 
+    def test_fabric_connection(self, monkeypatch, fabric_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_fabric": "fabric"}),
+        )
+        monkeypatch.setenv("my_fabric", json.dumps(fabric_connection_json))
+        conn = get_connection("my_fabric")
+        assert conn.type == "fabric"
+        assert conn.raw["host"] == "fabric.example.com"
+
+    def test_oracle_connection(self, monkeypatch, oracle_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_oracle": "oracle"}),
+        )
+        monkeypatch.setenv("my_oracle", json.dumps(oracle_connection_json))
+        conn = get_connection("my_oracle")
+        assert conn.type == "oracle"
+        assert conn.raw["service_name"] == "ORCL"
+
+    def test_db2_connection(self, monkeypatch, db2_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_db2": "db2"}),
+        )
+        monkeypatch.setenv("my_db2", json.dumps(db2_connection_json))
+        conn = get_connection("my_db2")
+        assert conn.type == "db2"
+
+    def test_hana_connection(self, monkeypatch, hana_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_hana": "hana"}),
+        )
+        monkeypatch.setenv("my_hana", json.dumps(hana_connection_json))
+        conn = get_connection("my_hana")
+        assert conn.type == "hana"
+
+    def test_spanner_connection(self, monkeypatch, spanner_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_spanner": "spanner"}),
+        )
+        monkeypatch.setenv("my_spanner", json.dumps(spanner_connection_json))
+        conn = get_connection("my_spanner")
+        assert conn.type == "spanner"
+
+    def test_vertica_connection(self, monkeypatch, vertica_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_vertica": "vertica"}),
+        )
+        monkeypatch.setenv("my_vertica", json.dumps(vertica_connection_json))
+        conn = get_connection("my_vertica")
+        assert conn.type == "vertica"
+        assert conn.raw["host"] == "vertica.example.com"
+
 
 # ---------------------------------------------------------------------------
 # Import error messages for new types
@@ -543,6 +600,61 @@ class TestNewConnectionImportErrors:
         with pytest.raises(ImportError, match="bruin-sdk\\[trino\\]"):
             _ = conn.client
 
+    @patch.dict("sys.modules", {"oracledb": None})
+    def test_oracle_import_error(self, monkeypatch, oracle_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_oracle": "oracle"}),
+        )
+        monkeypatch.setenv("my_oracle", json.dumps(oracle_connection_json))
+        conn = get_connection("my_oracle")
+        with pytest.raises(ImportError, match="bruin-sdk\\[oracle\\]"):
+            _ = conn.client
+
+    @patch.dict("sys.modules", {"ibm_db_dbi": None})
+    def test_db2_import_error(self, monkeypatch, db2_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_db2": "db2"}),
+        )
+        monkeypatch.setenv("my_db2", json.dumps(db2_connection_json))
+        conn = get_connection("my_db2")
+        with pytest.raises(ImportError, match="bruin-sdk\\[db2\\]"):
+            _ = conn.client
+
+    @patch.dict("sys.modules", {"hdbcli": None, "hdbcli.dbapi": None})
+    def test_hana_import_error(self, monkeypatch, hana_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_hana": "hana"}),
+        )
+        monkeypatch.setenv("my_hana", json.dumps(hana_connection_json))
+        conn = get_connection("my_hana")
+        with pytest.raises(ImportError, match="bruin-sdk\\[hana\\]"):
+            _ = conn.client
+
+    @patch.dict("sys.modules", {"vertica_python": None})
+    def test_vertica_import_error(self, monkeypatch, vertica_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_vertica": "vertica"}),
+        )
+        monkeypatch.setenv("my_vertica", json.dumps(vertica_connection_json))
+        conn = get_connection("my_vertica")
+        with pytest.raises(ImportError, match="bruin-sdk\\[vertica\\]"):
+            _ = conn.client
+
+    @patch.dict("sys.modules", {"google.cloud.spanner_dbapi": None, "google": None, "google.cloud": None})
+    def test_spanner_import_error(self, monkeypatch, spanner_connection_json):
+        monkeypatch.setenv(
+            "BRUIN_CONNECTION_TYPES",
+            json.dumps({"my_spanner": "spanner"}),
+        )
+        monkeypatch.setenv("my_spanner", json.dumps(spanner_connection_json))
+        conn = get_connection("my_spanner")
+        with pytest.raises(ImportError, match="bruin-sdk\\[spanner\\]"):
+            _ = conn.client
+
 
 # ---------------------------------------------------------------------------
 # Lazy client creation for new types
@@ -571,6 +683,60 @@ class TestNewConnectionLazyInit:
         conn = get_connection("my_ch")
         assert conn.client is mock_client
 
+    @patch("bruin._connection._create_oracle")
+    def test_oracle_lazy_init(self, mock_create, monkeypatch, oracle_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_oracle": "oracle"}))
+        monkeypatch.setenv("my_oracle", json.dumps(oracle_connection_json))
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+
+        conn = get_connection("my_oracle")
+        mock_create.assert_not_called()
+        assert conn.client is mock_client
+        mock_create.assert_called_once()
+
+    @patch("bruin._connection._create_db2")
+    def test_db2_lazy_init(self, mock_create, monkeypatch, db2_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_db2": "db2"}))
+        monkeypatch.setenv("my_db2", json.dumps(db2_connection_json))
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+
+        conn = get_connection("my_db2")
+        assert conn.client is mock_client
+
+    @patch("bruin._connection._create_hana")
+    def test_hana_lazy_init(self, mock_create, monkeypatch, hana_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_hana": "hana"}))
+        monkeypatch.setenv("my_hana", json.dumps(hana_connection_json))
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+
+        conn = get_connection("my_hana")
+        assert conn.client is mock_client
+
+    @patch("bruin._connection._create_spanner")
+    def test_spanner_lazy_init(self, mock_create, monkeypatch, spanner_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_spanner": "spanner"}))
+        monkeypatch.setenv("my_spanner", json.dumps(spanner_connection_json))
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+
+        conn = get_connection("my_spanner")
+        assert conn.client is mock_client
+
+    @patch("bruin._connection._create_vertica")
+    def test_vertica_lazy_init(self, mock_create, monkeypatch, vertica_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_vertica": "vertica"}))
+        monkeypatch.setenv("my_vertica", json.dumps(vertica_connection_json))
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+
+        conn = get_connection("my_vertica")
+        mock_create.assert_not_called()
+        assert conn.client is mock_client
+        mock_create.assert_called_once()
+
     def test_sqlite_creates_real_connection(self, monkeypatch, sqlite_connection_json):
         """SQLite uses stdlib — no mocking needed."""
         monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_sqlite": "sqlite"}))
@@ -587,6 +753,102 @@ class TestNewConnectionLazyInit:
 # ---------------------------------------------------------------------------
 # Unsupported type
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Factory-level tests (verify actual driver kwargs)
+# ---------------------------------------------------------------------------
+
+class TestFactoryArgs:
+    def test_oracle_service_name(self, oracle_connection_json):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"oracledb": mock_mod}):
+            from bruin._connection import _create_oracle
+            _create_oracle(oracle_connection_json)
+        mock_mod.connect.assert_called_once_with(
+            user="system",
+            password="s3cret",
+            host="oracle.example.com",
+            port=1521,
+            service_name="ORCL",
+        )
+
+    def test_oracle_sid(self, oracle_sid_connection_json):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"oracledb": mock_mod}):
+            from bruin._connection import _create_oracle
+            _create_oracle(oracle_sid_connection_json)
+        mock_mod.connect.assert_called_once_with(
+            user="system",
+            password="s3cret",
+            host="oracle.example.com",
+            port=1521,
+            sid="XE",
+        )
+
+    def test_db2_connection_string(self, db2_connection_json):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"ibm_db_dbi": mock_mod}):
+            from bruin._connection import _create_db2
+            _create_db2(db2_connection_json)
+        conn_str = mock_mod.connect.call_args[0][0]
+        assert "DATABASE=SAMPLE;" in conn_str
+        assert "HOSTNAME=db2.example.com;" in conn_str
+        assert "PORT=50000;" in conn_str
+        assert "UID=db2admin;" in conn_str
+        assert "PWD=s3cret;" in conn_str
+
+    def test_hana_kwargs(self, hana_connection_json):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"hdbcli": mock_mod, "hdbcli.dbapi": mock_mod.dbapi}):
+            from bruin._connection import _create_hana
+            _create_hana(hana_connection_json)
+        mock_mod.dbapi.connect.assert_called_once_with(
+            address="hana.example.com",
+            port=30015,
+            user="SYSTEM",
+            password="s3cret",
+            databaseName="HDB",
+        )
+
+    def test_vertica_kwargs(self, vertica_connection_json):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"vertica_python": mock_mod}):
+            from bruin._connection import _create_vertica
+            _create_vertica(vertica_connection_json)
+        mock_mod.connect.assert_called_once_with(
+            host="vertica.example.com",
+            port=5433,
+            user="dbadmin",
+            password="s3cret",
+            database="analytics",
+        )
+
+    def test_spanner_kwargs(self, spanner_connection_json):
+        mock_connect = MagicMock()
+        mock_mod = MagicMock()
+        mock_mod.connect = mock_connect
+        with patch.dict("sys.modules", {
+            "google": MagicMock(),
+            "google.cloud": MagicMock(),
+            "google.cloud.spanner_dbapi": mock_mod,
+        }):
+            from bruin._connection import _create_spanner
+            _create_spanner(spanner_connection_json)
+        mock_connect.assert_called_once_with(
+            instance_id="my-instance",
+            database_id="my-db",
+            project="my-gcp-project",
+        )
+
+    def test_redshift_uses_port_5439(self):
+        mock_mod = MagicMock()
+        with patch.dict("sys.modules", {"psycopg2": mock_mod}):
+            from bruin._connection import _create_redshift
+            _create_redshift({"host": "rs.example.com", "username": "admin", "password": "pw"})
+        _, kwargs = mock_mod.connect.call_args
+        assert kwargs["port"] == 5439
+        assert kwargs["sslmode"] == "allow"
+
 
 class TestRepr:
     def test_connection_repr(self):
