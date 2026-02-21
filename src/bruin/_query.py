@@ -1,8 +1,12 @@
 import json
+import logging
 import re
+import time
 
 from bruin._connection import GCPConnection, get_connection
 from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, QueryError
+
+logger = logging.getLogger("bruin")
 
 _RETURNS_DATA = re.compile(
     r"^\s*(SELECT|WITH|SHOW|DESCRIBE|DESC|EXPLAIN|TABLE|VALUES)\b",
@@ -47,15 +51,33 @@ def _run_query(conn, sql: str):
         )
 
     annotated = _annotate_sql(sql)
+    returns = _returns_data(sql)
 
+    logger.debug(
+        "Executing query on '%s' (%s, %d chars, returns_data=%s)",
+        conn.name, conn.type, len(sql), returns,
+    )
+
+    t0 = time.monotonic()
     try:
-        return _execute(conn, annotated)
+        result = _execute(conn, annotated)
     except ConnectionTypeError:
         raise
     except Exception as exc:
         raise QueryError(
             f"Query failed on connection '{conn.name}' ({conn.type}): {exc}"
         ) from exc
+
+    elapsed = time.monotonic() - t0
+    if result is not None:
+        logger.debug(
+            "Query on '%s' complete → %d rows x %d cols in %.2fs",
+            conn.name, len(result), len(result.columns), elapsed,
+        )
+    else:
+        logger.debug("Query on '%s' complete (no result set) in %.2fs", conn.name, elapsed)
+
+    return result
 
 
 def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":

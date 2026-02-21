@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 from bruin.exceptions import (
@@ -6,6 +7,8 @@ from bruin.exceptions import (
     ConnectionParseError,
     ConnectionTypeError,
 )
+
+logger = logging.getLogger("bruin")
 
 
 class Connection:
@@ -25,6 +28,7 @@ class Connection:
                 f"Access the raw value with get_connection('{self.name}').raw instead."
             )
         if self._client is None:
+            logger.debug("Creating %s client for connection '%s'", self.type, self.name)
             self._client = _create_client(self.type, self.raw)
         return self._client
 
@@ -42,6 +46,7 @@ class Connection:
         """Close the underlying database client if it was initialized."""
         if self._client is None:
             return
+        logger.debug("Closing client for connection '%s'", self.name)
         close = getattr(self._client, "close", None)
         if callable(close):
             close()
@@ -104,6 +109,7 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use GCP credentials: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
+            logger.debug("Using service account credentials for '%s'", self.name)
             self._credentials = service_account.Credentials.from_service_account_info(sa_info)
         else:
             try:
@@ -113,6 +119,7 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use GCP credentials: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
+            logger.debug("Using Application Default Credentials for '%s'", self.name)
             self._credentials, _ = google.auth.default()
 
         return self._credentials
@@ -127,6 +134,10 @@ class GCPConnection(Connection):
                     "Install bruin-sdk[bigquery] to use BigQuery connections: "
                     "pip install 'bruin-sdk[bigquery]'"
                 )
+            logger.debug(
+                "Creating BigQuery client for '%s' (project=%s)",
+                self.name, self.raw.get("project_id"),
+            )
             self._bigquery_client = bigquery.Client(
                 credentials=self.credentials,
                 project=self.raw.get("project_id"),
@@ -549,6 +560,8 @@ def get_connection(name: str) -> "Connection | GCPConnection":
             f"Connection '{name}' not found. "
             f"Available connections: {', '.join(sorted(type_map)) or '(none)'}."
         )
+
+    logger.debug("Resolved connection '%s' → type=%s", name, conn_type)
 
     raw_value = os.environ.get(name)
     if raw_value is None:

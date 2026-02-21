@@ -1,14 +1,18 @@
 import datetime
 import json
+import logging
 import os
 
 from bruin.exceptions import BruinError
+
+logger = logging.getLogger("bruin")
 
 
 def _parse_date(env_var: str) -> "datetime.date | None":
     val = os.environ.get(env_var)
     if val is None:
         return None
+    logger.debug("Parsing %s=%s", env_var, val)
     try:
         return datetime.date.fromisoformat(val)
     except ValueError:
@@ -21,6 +25,7 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
     val = os.environ.get(env_var)
     if val is None:
         return None
+    logger.debug("Parsing %s=%s", env_var, val)
     try:
         return datetime.datetime.fromisoformat(val)
     except ValueError:
