@@ -49,12 +49,6 @@ def duckdb_env(monkeypatch):
 # BigQuery  (requires real GCP credentials)
 # ---------------------------------------------------------------------------
 
-requires_bigquery = pytest.mark.skipif(
-    not os.environ.get("BRUIN_TEST_BQ_PROJECT_ID"),
-    reason="Missing env var: BRUIN_TEST_BQ_PROJECT_ID",
-)
-
-
 @pytest.fixture
 def bq_env(monkeypatch):
     """Set up a BigQuery connection from ``BRUIN_TEST_BQ_*`` env vars.
@@ -80,22 +74,6 @@ def bq_env(monkeypatch):
 # ---------------------------------------------------------------------------
 # Snowflake  (requires real Snowflake credentials)
 # ---------------------------------------------------------------------------
-
-_SF_REQUIRED = (
-    "BRUIN_TEST_SF_ACCOUNT",
-    "BRUIN_TEST_SF_USERNAME",
-    "BRUIN_TEST_SF_PASSWORD",
-    "BRUIN_TEST_SF_DATABASE",
-    "BRUIN_TEST_SF_WAREHOUSE",
-)
-
-requires_snowflake = pytest.mark.skipif(
-    not all(os.environ.get(v) for v in _SF_REQUIRED),
-    reason="Missing env vars: " + ", ".join(
-        v for v in _SF_REQUIRED if not os.environ.get(v)
-    ),
-)
-
 
 @pytest.fixture
 def sf_env(monkeypatch):

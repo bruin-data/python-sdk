@@ -22,9 +22,11 @@ import pandas as pd
 import pytest
 
 from bruin import query
-from tests.integration.conftest import requires_bigquery
 
-pytestmark = requires_bigquery
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("BRUIN_TEST_BQ_PROJECT_ID"),
+    reason="Missing env var: BRUIN_TEST_BQ_PROJECT_ID",
+)
 
 
 @pytest.fixture

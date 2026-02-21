@@ -18,15 +18,28 @@ Optional::
 Snowflake detection uses ``cursor.description`` after ``cursor.execute()``.
 """
 
+import os
 import uuid
 
 import pandas as pd
 import pytest
 
 from bruin import query
-from tests.integration.conftest import requires_snowflake
 
-pytestmark = requires_snowflake
+_SF_REQUIRED = (
+    "BRUIN_TEST_SF_ACCOUNT",
+    "BRUIN_TEST_SF_USERNAME",
+    "BRUIN_TEST_SF_PASSWORD",
+    "BRUIN_TEST_SF_DATABASE",
+    "BRUIN_TEST_SF_WAREHOUSE",
+)
+
+pytestmark = pytest.mark.skipif(
+    not all(os.environ.get(v) for v in _SF_REQUIRED),
+    reason="Missing env vars: " + ", ".join(
+        v for v in _SF_REQUIRED if not os.environ.get(v)
+    ),
+)
 
 
 @pytest.fixture
