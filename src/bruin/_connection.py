@@ -177,6 +177,7 @@ class GCPConnection(Connection):
     def close(self):
         """Close the BigQuery client if it was initialized."""
         if self._bigquery_client is not None:
+            logger.debug("Closing BigQuery client for connection '%s'", self.name)
             close = getattr(self._bigquery_client, "close", None)
             if callable(close):
                 close()
