@@ -71,6 +71,18 @@ def postgres_connection_json():
 
 
 @pytest.fixture
+def redshift_connection_json():
+    return {
+        "host": "redshift-cluster.abc123.us-east-1.redshift.amazonaws.com",
+        "port": 5439,
+        "username": "admin",
+        "password": "s3cret",
+        "database": "analytics",
+        "ssl_mode": "require",
+    }
+
+
+@pytest.fixture
 def mssql_connection_json():
     return {
         "host": "sql.example.com",

@@ -138,6 +138,7 @@ class TestQuerySnowflake:
 
         assert result is None
         mock_cursor.fetch_pandas_all.assert_not_called()
+        mock_cursor.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +505,58 @@ class TestQueryMySQL:
         assert isinstance(result, pd.DataFrame)
         assert list(result.columns) == ["id", "name"]
 
+    def test_ddl_commits(self):
+        mock_cursor = MagicMock()
+        mock_cursor.description = None
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_mysql", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_mysql")
+
+        assert result is None
+        mock_client.commit.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Redshift (reuses postgres path)
+# ---------------------------------------------------------------------------
+
+
+class TestQueryRedshift:
+    @pytest.fixture(autouse=True)
+    def _setup(self, monkeypatch, redshift_connection_json):
+        monkeypatch.setenv("BRUIN_CONNECTION_TYPES", json.dumps({"my_rs": "redshift"}))
+        monkeypatch.setenv("my_rs", json.dumps(redshift_connection_json))
+
+    def test_select_returns_dataframe(self, sample_df):
+        mock_cursor = MagicMock()
+        mock_cursor.description = [("id",), ("name",)]
+        mock_cursor.fetchall.return_value = [(1, "a"), (2, "b")]
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_redshift", return_value=mock_client):
+            result = query("SELECT 1", "my_rs")
+
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ["id", "name"]
+
+    def test_ddl_commits(self):
+        mock_cursor = MagicMock()
+        mock_cursor.description = None
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_redshift", return_value=mock_client):
+            result = query("DROP TABLE foo", "my_rs")
+
+        assert result is None
+        mock_client.commit.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Synapse (reuses MSSQL path)
@@ -529,6 +582,19 @@ class TestQuerySynapse:
 
         assert isinstance(result, pd.DataFrame)
         assert list(result.columns) == ["id", "name"]
+
+    def test_ddl_commits(self):
+        mock_cursor = MagicMock()
+        mock_cursor.description = None
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_mssql", return_value=mock_client):
+            result = query("CREATE TABLE t (id INT)", "my_syn")
+
+        assert result is None
+        mock_client.commit.assert_called_once()
 
 
 class TestQueryFabric:
@@ -859,3 +925,33 @@ class TestQueryErrors:
         with patch("bruin._connection._create_snowflake", return_value=mock_client):
             with pytest.raises(QueryError, match="connection refused"):
                 query("SELECT 1", "my_sf")
+
+    @pytest.mark.usefixtures("_setup_postgres")
+    def test_cursor_closed_on_exception(self):
+        """Cursor must be closed even when execute() raises."""
+        mock_cursor = MagicMock()
+        mock_cursor.execute.side_effect = RuntimeError("syntax error")
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_postgres", return_value=mock_client):
+            with pytest.raises(QueryError, match="syntax error"):
+                query("INVALID SQL", "my_pg")
+
+        mock_cursor.close.assert_called_once()
+
+    @pytest.mark.usefixtures("_setup_snowflake")
+    def test_snowflake_cursor_closed_on_exception(self):
+        """Snowflake cursor must be closed even when execute() raises."""
+        mock_cursor = MagicMock()
+        mock_cursor.execute.side_effect = RuntimeError("warehouse suspended")
+
+        mock_client = MagicMock()
+        mock_client.cursor.return_value = mock_cursor
+
+        with patch("bruin._connection._create_snowflake", return_value=mock_client):
+            with pytest.raises(QueryError, match="warehouse suspended"):
+                query("SELECT 1", "my_sf")
+
+        mock_cursor.close.assert_called_once()
