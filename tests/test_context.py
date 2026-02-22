@@ -428,7 +428,19 @@ class TestVarsWithSchema:
     def test_coercion_failure_raises(self, monkeypatch):
         monkeypatch.setenv("BRUIN_VARS", json.dumps({"count": "abc"}))
         monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"count": {"type": "integer"}}))
-        with pytest.raises(BruinError, match="Cannot coerce"):
+        with pytest.raises(BruinError, match="Cannot coerce variable 'count'"):
+            _ = context.vars
+
+    def test_coercion_failure_in_nested_object_includes_path(self, monkeypatch):
+        monkeypatch.setenv(
+            "BRUIN_VARS",
+            json.dumps({"cfg": {"port": "not_a_number"}}),
+        )
+        monkeypatch.setenv(
+            "BRUIN_VARS_SCHEMA",
+            json.dumps({"cfg": {"type": "object", "properties": {"port": {"type": "integer"}}}}),
+        )
+        with pytest.raises(BruinError, match="Cannot coerce variable 'cfg'"):
             _ = context.vars
 
     def test_invalid_schema_json_ignored(self, monkeypatch):

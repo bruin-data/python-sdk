@@ -75,7 +75,12 @@ def _coerce_vars(values: dict, schema: dict) -> dict:
     for key, val in values.items():
         type_def = schema.get(key)
         if type_def:
-            result[key] = _coerce_value(val, type_def)
+            try:
+                result[key] = _coerce_value(val, type_def)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    f"Cannot coerce variable '{key}' (value={val!r}) to {type_def.get('type')}: {exc}"
+                ) from exc
         else:
             result[key] = val
     return result
