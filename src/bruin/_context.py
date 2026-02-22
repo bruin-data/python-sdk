@@ -62,10 +62,7 @@ def _coerce_value(value, type_def: dict):
         if not isinstance(value, dict):
             return value
         props = type_def.get("properties", {})
-        return {
-            k: _coerce_value(v, props[k]) if k in props else v
-            for k, v in value.items()
-        }
+        return {k: _coerce_value(v, props[k]) if k in props else v for k, v in value.items()}
     return value  # unknown type → passthrough
 
 

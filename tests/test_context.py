@@ -229,21 +229,23 @@ class TestVarsWithSchema:
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "db": {
-                    "type": "object",
-                    "properties": {
-                        "host": {"type": "string"},
-                        "opts": {
-                            "type": "object",
-                            "properties": {
-                                "timeout": {"type": "integer"},
-                                "retries": {"type": "integer"},
+            json.dumps(
+                {
+                    "db": {
+                        "type": "object",
+                        "properties": {
+                            "host": {"type": "string"},
+                            "opts": {
+                                "type": "object",
+                                "properties": {
+                                    "timeout": {"type": "integer"},
+                                    "retries": {"type": "integer"},
+                                },
                             },
                         },
                     },
-                },
-            }),
+                }
+            ),
         )
         assert context.vars == {"db": {"host": "localhost", "opts": {"timeout": 30, "retries": 3}}}
 
@@ -254,18 +256,20 @@ class TestVarsWithSchema:
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "users": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string"},
-                            "age": {"type": "integer"},
+            json.dumps(
+                {
+                    "users": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "age": {"type": "integer"},
+                            },
                         },
                     },
-                },
-            }),
+                }
+            ),
         )
         assert context.vars == {"users": [{"name": "alice", "age": 30}, {"name": "bob", "age": 25}]}
 
@@ -276,15 +280,17 @@ class TestVarsWithSchema:
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "config": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "ports": {"type": "array", "items": {"type": "integer"}},
+            json.dumps(
+                {
+                    "config": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "ports": {"type": "array", "items": {"type": "integer"}},
+                        },
                     },
-                },
-            }),
+                }
+            ),
         )
         assert context.vars == {"config": {"name": "prod", "ports": [80, 443]}}
 
@@ -303,48 +309,54 @@ class TestVarsWithSchema:
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "cfg": {
-                    "type": "object",
-                    "properties": {"port": {"type": "integer"}},
-                },
-            }),
+            json.dumps(
+                {
+                    "cfg": {
+                        "type": "object",
+                        "properties": {"port": {"type": "integer"}},
+                    },
+                }
+            ),
         )
         assert context.vars == {"cfg": {"port": 8080, "debug": "true", "label": "dev"}}
 
     def test_deeply_nested_three_levels(self, monkeypatch):
         monkeypatch.setenv(
             "BRUIN_VARS",
-            json.dumps({
-                "infra": {
-                    "cluster": {
-                        "node": {"cpu": "4", "memory": "16384", "gpu": "true"},
+            json.dumps(
+                {
+                    "infra": {
+                        "cluster": {
+                            "node": {"cpu": "4", "memory": "16384", "gpu": "true"},
+                        },
                     },
-                },
-            }),
+                }
+            ),
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "infra": {
-                    "type": "object",
-                    "properties": {
-                        "cluster": {
-                            "type": "object",
-                            "properties": {
-                                "node": {
-                                    "type": "object",
-                                    "properties": {
-                                        "cpu": {"type": "integer"},
-                                        "memory": {"type": "integer"},
-                                        "gpu": {"type": "boolean"},
+            json.dumps(
+                {
+                    "infra": {
+                        "type": "object",
+                        "properties": {
+                            "cluster": {
+                                "type": "object",
+                                "properties": {
+                                    "node": {
+                                        "type": "object",
+                                        "properties": {
+                                            "cpu": {"type": "integer"},
+                                            "memory": {"type": "integer"},
+                                            "gpu": {"type": "boolean"},
+                                        },
                                     },
                                 },
                             },
                         },
                     },
-                },
-            }),
+                }
+            ),
         )
         assert context.vars == {
             "infra": {"cluster": {"node": {"cpu": 4, "memory": 16384, "gpu": True}}}
@@ -353,31 +365,35 @@ class TestVarsWithSchema:
     def test_multiple_vars_mixed_types(self, monkeypatch):
         monkeypatch.setenv(
             "BRUIN_VARS",
-            json.dumps({
-                "env": "production",
-                "replicas": "3",
-                "rate_limit": "1.5",
-                "debug": "false",
-                "regions": ["us-east-1", "eu-west-1"],
-                "db": {"port": "5432", "ssl": "true"},
-            }),
+            json.dumps(
+                {
+                    "env": "production",
+                    "replicas": "3",
+                    "rate_limit": "1.5",
+                    "debug": "false",
+                    "regions": ["us-east-1", "eu-west-1"],
+                    "db": {"port": "5432", "ssl": "true"},
+                }
+            ),
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "env": {"type": "string"},
-                "replicas": {"type": "integer"},
-                "rate_limit": {"type": "number"},
-                "debug": {"type": "boolean"},
-                "regions": {"type": "array", "items": {"type": "string"}},
-                "db": {
-                    "type": "object",
-                    "properties": {
-                        "port": {"type": "integer"},
-                        "ssl": {"type": "boolean"},
+            json.dumps(
+                {
+                    "env": {"type": "string"},
+                    "replicas": {"type": "integer"},
+                    "rate_limit": {"type": "number"},
+                    "debug": {"type": "boolean"},
+                    "regions": {"type": "array", "items": {"type": "string"}},
+                    "db": {
+                        "type": "object",
+                        "properties": {
+                            "port": {"type": "integer"},
+                            "ssl": {"type": "boolean"},
+                        },
                     },
-                },
-            }),
+                }
+            ),
         )
         assert context.vars == {
             "env": "production",
@@ -395,12 +411,14 @@ class TestVarsWithSchema:
         )
         monkeypatch.setenv(
             "BRUIN_VARS_SCHEMA",
-            json.dumps({
-                "matrix": {
-                    "type": "array",
-                    "items": {"type": "array", "items": {"type": "integer"}},
-                },
-            }),
+            json.dumps(
+                {
+                    "matrix": {
+                        "type": "array",
+                        "items": {"type": "array", "items": {"type": "integer"}},
+                    },
+                }
+            ),
         )
         assert context.vars == {"matrix": [[1, 2], [3, 4]]}
 
