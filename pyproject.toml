@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bruin-sdk"
-version = "0.3.2"
+version = "0.4.0"
 description = "Python SDK for Bruin CLI — query databases, parse context, and access connections with zero boilerplate."
 readme = "docs/README.md"
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ dependencies = ["pandas"]
 
 [project.urls]
 Homepage = "https://github.com/bruin-data/bruin"
-Repository = "https://github.com/bruin-data/bruin-python"
+Repository = "https://github.com/bruin-data/python-sdk"
 Documentation = "https://docs.getbruin.com"
 
 [project.optional-dependencies]
