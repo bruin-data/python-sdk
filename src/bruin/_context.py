@@ -32,6 +32,55 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
         )
 
 
+def _coerce_value(value, type_def: dict):
+    """Coerce a single value to match a JSON Schema type definition."""
+    if value is None:
+        return None
+    schema_type = type_def.get("type")
+    if schema_type == "string":
+        return str(value)
+    if schema_type == "integer":
+        return int(value)
+    if schema_type == "number":
+        return float(value)
+    if schema_type == "boolean":
+        if isinstance(value, str):
+            if value.lower() in ("true", "1"):
+                return True
+            if value.lower() in ("false", "0"):
+                return False
+            raise ValueError(f"Cannot convert '{value}' to boolean")
+        return bool(value)
+    if schema_type == "array":
+        if not isinstance(value, list):
+            return value
+        items_def = type_def.get("items")
+        if items_def:
+            return [_coerce_value(item, items_def) for item in value]
+        return value
+    if schema_type == "object":
+        if not isinstance(value, dict):
+            return value
+        props = type_def.get("properties", {})
+        return {
+            k: _coerce_value(v, props[k]) if k in props else v
+            for k, v in value.items()
+        }
+    return value  # unknown type → passthrough
+
+
+def _coerce_vars(values: dict, schema: dict) -> dict:
+    """Apply schema-based type coercion to all variables."""
+    result = {}
+    for key, val in values.items():
+        type_def = schema.get(key)
+        if type_def:
+            result[key] = _coerce_value(val, type_def)
+        else:
+            result[key] = val
+    return result
+
+
 class _BruinContext:
     """Lazy accessor for BRUIN_* environment variables injected by ``bruin run``.
 
@@ -92,6 +141,16 @@ class _BruinContext:
             raise BruinError(
                 f"Invalid BRUIN_VARS value: expected a JSON object, got {type(parsed).__name__}."
             )
+        schema_raw = os.environ.get("BRUIN_VARS_SCHEMA")
+        if schema_raw:
+            try:
+                schema = json.loads(schema_raw)
+            except (json.JSONDecodeError, TypeError):
+                return parsed  # bad schema → return raw values
+            try:
+                return _coerce_vars(parsed, schema)
+            except (ValueError, TypeError) as exc:
+                raise BruinError(f"Cannot coerce BRUIN_VARS: {exc}") from exc
         return parsed
 
 

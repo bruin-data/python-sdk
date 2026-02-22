@@ -163,6 +163,87 @@ class TestMalformedValues:
             _ = context.vars
 
 
+class TestVarsWithSchema:
+    """Tests for type-aware variable coercion using BRUIN_VARS_SCHEMA."""
+
+    def test_integer_from_string(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"count": "42"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"count": {"type": "integer"}}))
+        assert context.vars == {"count": 42}
+
+    def test_number_from_string(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"rate": "3.14"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"rate": {"type": "number"}}))
+        assert context.vars == {"rate": 3.14}
+
+    def test_boolean_true_from_string(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"flag": "true"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"flag": {"type": "boolean"}}))
+        assert context.vars == {"flag": True}
+
+    def test_boolean_false_from_string(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"flag": "false"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"flag": {"type": "boolean"}}))
+        assert context.vars == {"flag": False}
+
+    def test_boolean_from_int(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"flag": 1}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"flag": {"type": "boolean"}}))
+        assert context.vars == {"flag": True}
+
+    def test_string_passthrough(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"env": "prod"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"env": {"type": "string"}}))
+        assert context.vars == {"env": "prod"}
+
+    def test_integer_already_int(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"count": 42}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"count": {"type": "integer"}}))
+        assert context.vars == {"count": 42}
+
+    def test_null_passthrough(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"x": None}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"x": {"type": "integer"}}))
+        assert context.vars == {"x": None}
+
+    def test_array_coercion(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"ids": ["1", "2"]}))
+        monkeypatch.setenv(
+            "BRUIN_VARS_SCHEMA",
+            json.dumps({"ids": {"type": "array", "items": {"type": "integer"}}}),
+        )
+        assert context.vars == {"ids": [1, 2]}
+
+    def test_object_coercion(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"cfg": {"port": "8080"}}))
+        monkeypatch.setenv(
+            "BRUIN_VARS_SCHEMA",
+            json.dumps({"cfg": {"type": "object", "properties": {"port": {"type": "integer"}}}}),
+        )
+        assert context.vars == {"cfg": {"port": 8080}}
+
+    def test_no_schema_returns_raw(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"count": "42"}))
+        monkeypatch.delenv("BRUIN_VARS_SCHEMA", raising=False)
+        assert context.vars == {"count": "42"}
+
+    def test_var_not_in_schema_passthrough(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"a": "1", "b": "2"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"a": {"type": "integer"}}))
+        assert context.vars == {"a": 1, "b": "2"}
+
+    def test_coercion_failure_raises(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"count": "abc"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", json.dumps({"count": {"type": "integer"}}))
+        with pytest.raises(BruinError, match="Cannot coerce"):
+            _ = context.vars
+
+    def test_invalid_schema_json_ignored(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_VARS", json.dumps({"x": "1"}))
+        monkeypatch.setenv("BRUIN_VARS_SCHEMA", "{bad json")
+        assert context.vars == {"x": "1"}
+
+
 class TestFreshReads:
     def test_changing_env_var_reflects_immediately(self, monkeypatch):
         monkeypatch.setenv("BRUIN_RUN_ID", "first")
