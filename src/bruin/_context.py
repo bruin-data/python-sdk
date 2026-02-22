@@ -78,8 +78,9 @@ def _coerce_vars(values: dict, schema: dict) -> dict:
             try:
                 result[key] = _coerce_value(val, type_def)
             except (ValueError, TypeError) as exc:
+                target = type_def.get("type")
                 raise ValueError(
-                    f"Cannot coerce variable '{key}' (value={val!r}) to {type_def.get('type')}: {exc}"
+                    f"Cannot coerce variable '{key}' (value={val!r}) to {target}: {exc}"
                 ) from exc
         else:
             result[key] = val
