@@ -124,6 +124,10 @@ class _BruinContext:
         return _parse_datetime("BRUIN_EXECUTION_DATETIME")
 
     @property
+    def execution_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_EXECUTION_TIMESTAMP")
+
+    @property
     def run_id(self) -> "str | None":
         return os.environ.get("BRUIN_RUN_ID")
 
