@@ -43,6 +43,12 @@ class TestStartTimestamp:
         result = context.start_timestamp
         assert result == datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
 
+    def test_returns_datetime_with_non_utc_tz(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_START_TIMESTAMP", "2024-01-15T10:30:00.000000+05:30")
+        result = context.start_timestamp
+        tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        assert result == datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=tz)
+
     def test_returns_none_when_missing(self, monkeypatch):
         monkeypatch.delenv("BRUIN_START_TIMESTAMP", raising=False)
         assert context.start_timestamp is None

@@ -99,9 +99,9 @@ from bruin import context
 | Property | Type | Env Var | Description |
 |----------|------|---------|-------------|
 | `context.start_date` | `date \| None` | `BRUIN_START_DATE` | Pipeline run start date |
-| `context.end_date` | `date \| None` | `BRUIN_END_DATE` | Pipeline run end date |
 | `context.start_datetime` | `datetime \| None` | `BRUIN_START_DATETIME` | Start date with time |
 | `context.start_timestamp` | `datetime \| None` | `BRUIN_START_TIMESTAMP` | Start timestamp with timezone |
+| `context.end_date` | `date \| None` | `BRUIN_END_DATE` | Pipeline run end date |
 | `context.end_datetime` | `datetime \| None` | `BRUIN_END_DATETIME` | End date with time |
 | `context.end_timestamp` | `datetime \| None` | `BRUIN_END_TIMESTAMP` | End timestamp with timezone |
 | `context.execution_date` | `date \| None` | `BRUIN_EXECUTION_DATE` | Execution date |

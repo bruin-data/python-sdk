@@ -28,7 +28,7 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
         return datetime.datetime.fromisoformat(val)
     except ValueError:
         raise BruinError(
-            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime (YYYY-MM-DDThh:mm:ss)."
+            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime."
         )
 
 
@@ -96,16 +96,16 @@ class _BruinContext:
         return _parse_date("BRUIN_START_DATE")
 
     @property
-    def end_date(self) -> "datetime.date | None":
-        return _parse_date("BRUIN_END_DATE")
-
-    @property
     def start_datetime(self) -> "datetime.datetime | None":
         return _parse_datetime("BRUIN_START_DATETIME")
 
     @property
     def start_timestamp(self) -> "datetime.datetime | None":
         return _parse_datetime("BRUIN_START_TIMESTAMP")
+
+    @property
+    def end_date(self) -> "datetime.date | None":
+        return _parse_date("BRUIN_END_DATE")
 
     @property
     def end_datetime(self) -> "datetime.datetime | None":
