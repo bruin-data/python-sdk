@@ -79,6 +79,16 @@ class TestExecutionDate:
         assert context.execution_date is None
 
 
+class TestExecutionDatetime:
+    def test_returns_datetime(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_EXECUTION_DATETIME", "2024-03-01T12:00:00")
+        assert context.execution_datetime == datetime.datetime(2024, 3, 1, 12, 0, 0)
+
+    def test_returns_none_when_missing(self, monkeypatch):
+        monkeypatch.delenv("BRUIN_EXECUTION_DATETIME", raising=False)
+        assert context.execution_datetime is None
+
+
 class TestRunId:
     def test_returns_string(self, monkeypatch):
         monkeypatch.setenv("BRUIN_RUN_ID", "abc-123")
