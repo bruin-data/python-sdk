@@ -104,6 +104,10 @@ class _BruinContext:
         return _parse_datetime("BRUIN_START_DATETIME")
 
     @property
+    def start_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_START_TIMESTAMP")
+
+    @property
     def end_datetime(self) -> "datetime.datetime | None":
         return _parse_datetime("BRUIN_END_DATETIME")
 
@@ -130,6 +134,10 @@ class _BruinContext:
     @property
     def is_full_refresh(self) -> bool:
         return os.environ.get("BRUIN_FULL_REFRESH") == "1"
+
+    @property
+    def commit_hash(self) -> "str | None":
+        return os.environ.get("BRUIN_COMMIT_HASH")
 
     @property
     def vars(self) -> dict:

@@ -37,6 +37,17 @@ class TestStartDatetime:
         assert context.start_datetime is None
 
 
+class TestStartTimestamp:
+    def test_returns_datetime_with_tz(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_START_TIMESTAMP", "2024-01-15T10:30:00.000000+00:00")
+        result = context.start_timestamp
+        assert result == datetime.datetime(2024, 1, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
+
+    def test_returns_none_when_missing(self, monkeypatch):
+        monkeypatch.delenv("BRUIN_START_TIMESTAMP", raising=False)
+        assert context.start_timestamp is None
+
+
 class TestEndDatetime:
     def test_returns_datetime(self, monkeypatch):
         monkeypatch.setenv("BRUIN_END_DATETIME", "2024-06-30T23:59:59")
@@ -95,6 +106,16 @@ class TestConnection:
     def test_returns_none_when_missing(self, monkeypatch):
         monkeypatch.delenv("BRUIN_CONNECTION", raising=False)
         assert context.connection is None
+
+
+class TestCommitHash:
+    def test_returns_string(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_COMMIT_HASH", "abc1234def5678")
+        assert context.commit_hash == "abc1234def5678"
+
+    def test_returns_none_when_missing(self, monkeypatch):
+        monkeypatch.delenv("BRUIN_COMMIT_HASH", raising=False)
+        assert context.commit_hash is None
 
 
 class TestIsFullRefresh:
