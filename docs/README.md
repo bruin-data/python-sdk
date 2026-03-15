@@ -103,6 +103,7 @@ from bruin import context
 | `context.start_datetime` | `datetime \| None` | `BRUIN_START_DATETIME` | Start date with time |
 | `context.start_timestamp` | `datetime \| None` | `BRUIN_START_TIMESTAMP` | Start timestamp with timezone |
 | `context.end_datetime` | `datetime \| None` | `BRUIN_END_DATETIME` | End date with time |
+| `context.end_timestamp` | `datetime \| None` | `BRUIN_END_TIMESTAMP` | End timestamp with timezone |
 | `context.execution_date` | `date \| None` | `BRUIN_EXECUTION_DATE` | Execution date |
 | `context.run_id` | `str \| None` | `BRUIN_RUN_ID` | Unique run identifier |
 | `context.pipeline` | `str \| None` | `BRUIN_PIPELINE` | Pipeline name |

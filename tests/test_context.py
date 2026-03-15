@@ -58,6 +58,17 @@ class TestEndDatetime:
         assert context.end_datetime is None
 
 
+class TestEndTimestamp:
+    def test_returns_datetime_with_tz(self, monkeypatch):
+        monkeypatch.setenv("BRUIN_END_TIMESTAMP", "2024-06-30T23:59:59.000000+00:00")
+        result = context.end_timestamp
+        assert result == datetime.datetime(2024, 6, 30, 23, 59, 59, tzinfo=datetime.timezone.utc)
+
+    def test_returns_none_when_missing(self, monkeypatch):
+        monkeypatch.delenv("BRUIN_END_TIMESTAMP", raising=False)
+        assert context.end_timestamp is None
+
+
 class TestExecutionDate:
     def test_returns_date(self, monkeypatch):
         monkeypatch.setenv("BRUIN_EXECUTION_DATE", "2024-03-01")

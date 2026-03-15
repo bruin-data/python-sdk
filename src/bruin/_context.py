@@ -112,6 +112,10 @@ class _BruinContext:
         return _parse_datetime("BRUIN_END_DATETIME")
 
     @property
+    def end_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_END_TIMESTAMP")
+
+    @property
     def execution_date(self) -> "datetime.date | None":
         return _parse_date("BRUIN_EXECUTION_DATE")
 
