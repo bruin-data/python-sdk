@@ -435,3 +435,7 @@ query("INSERT INTO audit_log VALUES ('setup_complete', NOW())")
 df = query("SELECT COUNT(*) as cnt FROM audit_log")
 print(f"Audit log has {df['cnt'][0]} entries")
 ```
+
+## Disclaimer
+
+This is an AI-maintained project. Not a single line of code was written by humans, and we intend it to stay that way. The engineering team at [Bruin](https://getbruin.com) is responsible for maintaining this library while utilizing AI heavily.
