@@ -99,15 +99,20 @@ from bruin import context
 | Property | Type | Env Var | Description |
 |----------|------|---------|-------------|
 | `context.start_date` | `date \| None` | `BRUIN_START_DATE` | Pipeline run start date |
-| `context.end_date` | `date \| None` | `BRUIN_END_DATE` | Pipeline run end date |
 | `context.start_datetime` | `datetime \| None` | `BRUIN_START_DATETIME` | Start date with time |
+| `context.start_timestamp` | `datetime \| None` | `BRUIN_START_TIMESTAMP` | Start timestamp with timezone |
+| `context.end_date` | `date \| None` | `BRUIN_END_DATE` | Pipeline run end date |
 | `context.end_datetime` | `datetime \| None` | `BRUIN_END_DATETIME` | End date with time |
+| `context.end_timestamp` | `datetime \| None` | `BRUIN_END_TIMESTAMP` | End timestamp with timezone |
 | `context.execution_date` | `date \| None` | `BRUIN_EXECUTION_DATE` | Execution date |
+| `context.execution_datetime` | `datetime \| None` | `BRUIN_EXECUTION_DATETIME` | Execution date with time |
+| `context.execution_timestamp` | `datetime \| None` | `BRUIN_EXECUTION_TIMESTAMP` | Execution timestamp with timezone |
 | `context.run_id` | `str \| None` | `BRUIN_RUN_ID` | Unique run identifier |
 | `context.pipeline` | `str \| None` | `BRUIN_PIPELINE` | Pipeline name |
 | `context.asset_name` | `str \| None` | `BRUIN_ASSET` | Current asset name |
 | `context.connection` | `str \| None` | `BRUIN_CONNECTION` | Asset's default connection |
 | `context.is_full_refresh` | `bool` | `BRUIN_FULL_REFRESH` | `True` when `--full-refresh` flag is set |
+| `context.commit_hash` | `str \| None` | `BRUIN_COMMIT_HASH` | Git commit hash of the pipeline's repository |
 | `context.vars` | `dict` | `BRUIN_VARS` | Pipeline variables (types preserved from JSON Schema) |
 
 All properties return `None` when the corresponding env var is missing (except `is_full_refresh` which returns `False`, and `vars` which returns `{}`).

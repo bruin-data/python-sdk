@@ -27,9 +27,7 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
     try:
         return datetime.datetime.fromisoformat(val)
     except ValueError:
-        raise BruinError(
-            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime (YYYY-MM-DDThh:mm:ss)."
-        )
+        raise BruinError(f"Invalid {env_var} value '{val}': expected ISO-8601 datetime.")
 
 
 def _coerce_value(value, type_def: dict):
@@ -96,20 +94,36 @@ class _BruinContext:
         return _parse_date("BRUIN_START_DATE")
 
     @property
-    def end_date(self) -> "datetime.date | None":
-        return _parse_date("BRUIN_END_DATE")
-
-    @property
     def start_datetime(self) -> "datetime.datetime | None":
         return _parse_datetime("BRUIN_START_DATETIME")
+
+    @property
+    def start_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_START_TIMESTAMP")
+
+    @property
+    def end_date(self) -> "datetime.date | None":
+        return _parse_date("BRUIN_END_DATE")
 
     @property
     def end_datetime(self) -> "datetime.datetime | None":
         return _parse_datetime("BRUIN_END_DATETIME")
 
     @property
+    def end_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_END_TIMESTAMP")
+
+    @property
     def execution_date(self) -> "datetime.date | None":
         return _parse_date("BRUIN_EXECUTION_DATE")
+
+    @property
+    def execution_datetime(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_EXECUTION_DATETIME")
+
+    @property
+    def execution_timestamp(self) -> "datetime.datetime | None":
+        return _parse_datetime("BRUIN_EXECUTION_TIMESTAMP")
 
     @property
     def run_id(self) -> "str | None":
@@ -130,6 +144,10 @@ class _BruinContext:
     @property
     def is_full_refresh(self) -> bool:
         return os.environ.get("BRUIN_FULL_REFRESH") == "1"
+
+    @property
+    def commit_hash(self) -> "str | None":
+        return os.environ.get("BRUIN_COMMIT_HASH")
 
     @property
     def vars(self) -> dict:
