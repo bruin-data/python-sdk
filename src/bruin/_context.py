@@ -27,9 +27,7 @@ def _parse_datetime(env_var: str) -> "datetime.datetime | None":
     try:
         return datetime.datetime.fromisoformat(val)
     except ValueError:
-        raise BruinError(
-            f"Invalid {env_var} value '{val}': expected ISO-8601 datetime."
-        )
+        raise BruinError(f"Invalid {env_var} value '{val}': expected ISO-8601 datetime.")
 
 
 def _coerce_value(value, type_def: dict):
