@@ -35,6 +35,7 @@ bruin-sdk[snowflake]    # Snowflake
 bruin-sdk[postgres]     # PostgreSQL / Redshift
 bruin-sdk[redshift]     # Redshift (alias for postgres extra)
 bruin-sdk[mssql]        # Microsoft SQL Server
+bruin-sdk[fabric]       # Microsoft Fabric Warehouse
 bruin-sdk[mysql]        # MySQL
 bruin-sdk[duckdb]       # DuckDB
 bruin-sdk[sheets]       # Google Sheets (for GCP connections)
@@ -209,11 +210,27 @@ conn.client  # Lazy-initialized database client
 | `postgres` | `psycopg2.connection` | `bruin-sdk[postgres]` |
 | `redshift` | `psycopg2.connection` | `bruin-sdk[redshift]` |
 | `mssql` | `pymssql.Connection` | `bruin-sdk[mssql]` |
+| `fabric` | `pyodbc.Connection` or `pymssql.Connection` | `bruin-sdk[fabric]` |
 | `mysql` | `mysql.connector.Connection` | `bruin-sdk[mysql]` |
 | `duckdb` | `duckdb.DuckDBPyConnection` | `bruin-sdk[duckdb]` |
 | `generic` | N/A (raises error) | — |
 
 Client creation is **lazy** — the actual database connection is only established when `.client` is first accessed.
+
+#### Fabric connections
+
+Fabric supports three authentication modes, selected by the fields present on the connection:
+
+| Fields | Mode | Driver |
+|--------|------|--------|
+| `use_azure_default_credential: true` | `DefaultAzureCredential` (e.g. `az login`, managed identity) | `pyodbc` |
+| `client_id` + `client_secret` + `tenant_id` | Microsoft Entra ID service principal | `pyodbc` |
+| `username` + `password` | SQL authentication | `pymssql` |
+
+The Microsoft Entra ID modes acquire an access token and hand it to the driver, which requires an
+[ODBC Driver for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
+(msodbcsql18 or newer) on the machine running the asset. The newest installed driver is used unless
+the connection sets `driver` explicitly.
 
 #### GCP connections
 

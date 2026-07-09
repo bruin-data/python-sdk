@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import struct
 
 from bruin.exceptions import (
     ConnectionNotFoundError,
@@ -9,6 +10,13 @@ from bruin.exceptions import (
 )
 
 logger = logging.getLogger("bruin")
+
+
+def _as_bool(value) -> bool:
+    """Interpret a connection field as a boolean, tolerating string payloads."""
+    if isinstance(value, str):
+        return value.lower() == "true"
+    return bool(value)
 
 
 class Connection:
@@ -73,7 +81,7 @@ class GCPConnection(Connection):
 
     def _uses_adc(self) -> bool:
         """Return True when the connection is configured for Application Default Credentials."""
-        return self.raw.get("use_application_default_credentials") in ("true", "True", True)
+        return _as_bool(self.raw.get("use_application_default_credentials"))
 
     def _parse_sa_info(self):
         """Parse the service account JSON from the connection payload."""
@@ -194,7 +202,7 @@ def _create_client(conn_type: str, raw):
         "redshift": _create_redshift,
         "mssql": _create_mssql,
         "synapse": _create_mssql,
-        "fabric": _create_mssql,
+        "fabric": _create_fabric,
         "mysql": _create_mysql,
         "duckdb": _create_duckdb,
         "databricks": _create_databricks,
@@ -305,6 +313,100 @@ def _create_mssql(raw: dict):
         user=raw["username"],
         password=raw["password"],
         database=raw.get("database", ""),
+    )
+
+
+_FABRIC_TOKEN_SCOPE = "https://database.windows.net/.default"
+
+# SQL_COPT_SS_ACCESS_TOKEN — the msodbcsql pre-connect attribute that carries an Entra ID token.
+_SQL_COPT_SS_ACCESS_TOKEN = 1256
+
+
+def _fabric_driver(raw: dict) -> str:
+    """Pick the ODBC driver to talk to Fabric with."""
+    import pyodbc
+
+    installed = pyodbc.drivers()
+    configured = raw.get("driver")
+    if configured:
+        if configured not in installed:
+            raise ConnectionTypeError(
+                f"ODBC driver '{configured}' is not installed. Available drivers: "
+                f"{', '.join(installed) or '(none)'}."
+            )
+        return configured
+
+    candidates = sorted(
+        (d for d in installed if d.startswith("ODBC Driver ") and d.endswith(" for SQL Server")),
+        reverse=True,
+    )
+    if not candidates:
+        raise ConnectionTypeError(
+            "No 'ODBC Driver NN for SQL Server' is installed, which is required for Microsoft "
+            "Entra ID authentication against Fabric. Install msodbcsql18: "
+            "https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server"
+        )
+    return candidates[0]
+
+
+def _fabric_token_struct(raw: dict) -> bytes:
+    """Fetch an Entra ID access token and pack it the way msodbcsql expects."""
+    try:
+        from azure.identity import ClientSecretCredential, DefaultAzureCredential
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[fabric] to use Microsoft Entra ID authentication: "
+            "pip install 'bruin-sdk[fabric]'"
+        )
+
+    if _as_bool(raw.get("use_azure_default_credential")):
+        logger.debug("Using DefaultAzureCredential for Fabric connection")
+        credential = DefaultAzureCredential()
+    else:
+        logger.debug("Using service principal %s for Fabric connection", raw["client_id"])
+        credential = ClientSecretCredential(
+            tenant_id=raw["tenant_id"],
+            client_id=raw["client_id"],
+            client_secret=raw["client_secret"],
+        )
+
+    token = credential.get_token(_FABRIC_TOKEN_SCOPE).token.encode("utf-16-le")
+    return struct.pack(f"<I{len(token)}s", len(token), token)
+
+
+def _create_fabric(raw: dict):
+    """Connect to a Microsoft Fabric warehouse.
+
+    Fabric accepts three auth modes.  Entra ID (service principal or
+    ``DefaultAzureCredential``) requires an access token, which only the
+    msodbcsql driver can carry — so those go through ``pyodbc``.  SQL
+    authentication falls back to the shared MSSQL path.
+    """
+    has_service_principal = all(raw.get(k) for k in ("client_id", "client_secret", "tenant_id"))
+    if not has_service_principal and not _as_bool(raw.get("use_azure_default_credential")):
+        if raw.get("username"):
+            return _create_mssql(raw)
+        raise ConnectionParseError(
+            "Fabric connection is missing credentials. Set 'use_azure_default_credential', "
+            "or 'client_id' + 'client_secret' + 'tenant_id', or 'username' + 'password'."
+        )
+
+    try:
+        import pyodbc
+    except ImportError:
+        raise ImportError(
+            "Install bruin-sdk[fabric] to use Fabric connections: pip install 'bruin-sdk[fabric]'"
+        )
+
+    conn_str = (
+        f"DRIVER={{{_fabric_driver(raw)}}};"
+        f"SERVER={raw['host']},{raw.get('port', 1433)};"
+        f"DATABASE={raw.get('database', '')};"
+        f"Encrypt=yes;TrustServerCertificate=no"
+    )
+    return pyodbc.connect(
+        conn_str,
+        attrs_before={_SQL_COPT_SS_ACCESS_TOKEN: _fabric_token_struct(raw)},
     )
 
 
