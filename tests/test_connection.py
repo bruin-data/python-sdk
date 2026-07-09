@@ -883,6 +883,132 @@ class TestFactoryArgs:
         assert kwargs["sslmode"] == "allow"
 
 
+class TestFabricAuth:
+    """Fabric picks its driver and credential from the fields on the connection."""
+
+    @staticmethod
+    def _mock_azure(token="access-token"):
+        azure = MagicMock()
+        identity = MagicMock()
+        azure.identity = identity
+        for factory in (identity.ClientSecretCredential, identity.DefaultAzureCredential):
+            factory.return_value.get_token.return_value.token = token
+        return azure, identity
+
+    @staticmethod
+    def _mock_pyodbc(drivers=("ODBC Driver 17 for SQL Server", "ODBC Driver 18 for SQL Server")):
+        pyodbc = MagicMock()
+        pyodbc.drivers.return_value = list(drivers)
+        return pyodbc
+
+    def _connect(self, raw, pyodbc=None):
+        pyodbc = pyodbc or self._mock_pyodbc()
+        azure, identity = self._mock_azure()
+        modules = {"pyodbc": pyodbc, "azure": azure, "azure.identity": identity}
+        with patch.dict("sys.modules", modules):
+            from bruin._connection import _create_fabric
+
+            _create_fabric(raw)
+        return pyodbc, identity
+
+    def test_service_principal_uses_pyodbc_with_access_token(
+        self, fabric_service_principal_connection_json
+    ):
+        pyodbc, identity = self._connect(fabric_service_principal_connection_json)
+
+        identity.ClientSecretCredential.assert_called_once_with(
+            tenant_id="tenant-id",
+            client_id="app-id",
+            client_secret="app-secret",
+        )
+        identity.DefaultAzureCredential.assert_not_called()
+
+        conn_str = pyodbc.connect.call_args[0][0]
+        assert "DRIVER={ODBC Driver 18 for SQL Server};" in conn_str
+        assert "SERVER=sql-endpoint-guid.datawarehouse.fabric.microsoft.com,1433;" in conn_str
+        assert "DATABASE=warehouse;" in conn_str
+
+        # The token is length-prefixed UTF-16-LE, as msodbcsql expects.
+        token_struct = pyodbc.connect.call_args[1]["attrs_before"][1256]
+        expected = "access-token".encode("utf-16-le")
+        assert token_struct == len(expected).to_bytes(4, "little") + expected
+
+    def test_azure_default_credential(self, fabric_azure_default_connection_json):
+        _, identity = self._connect(fabric_azure_default_connection_json)
+        identity.DefaultAzureCredential.assert_called_once_with()
+        identity.ClientSecretCredential.assert_not_called()
+
+    def test_azure_default_credential_as_string(self, fabric_azure_default_connection_json):
+        """Bruin may serialize the flag as a string rather than a JSON bool."""
+        fabric_azure_default_connection_json["use_azure_default_credential"] = "true"
+        _, identity = self._connect(fabric_azure_default_connection_json)
+        identity.DefaultAzureCredential.assert_called_once_with()
+
+    def test_sql_auth_falls_back_to_mssql(self, fabric_connection_json):
+        mock_pymssql = MagicMock()
+        with patch.dict("sys.modules", {"pymssql": mock_pymssql}):
+            from bruin._connection import _create_fabric
+
+            _create_fabric(fabric_connection_json)
+        mock_pymssql.connect.assert_called_once_with(
+            server="fabric.example.com",
+            port=1433,
+            user="admin",
+            password="s3cret",
+            database="warehouse",
+        )
+
+    def test_service_principal_preferred_over_username(
+        self, fabric_service_principal_connection_json
+    ):
+        fabric_service_principal_connection_json["username"] = "admin"
+        _, identity = self._connect(fabric_service_principal_connection_json)
+        identity.ClientSecretCredential.assert_called_once()
+
+    def test_partial_service_principal_without_username_raises(
+        self, fabric_service_principal_connection_json
+    ):
+        del fabric_service_principal_connection_json["client_secret"]
+        from bruin._connection import _create_fabric
+
+        with pytest.raises(ConnectionParseError, match="missing credentials"):
+            _create_fabric(fabric_service_principal_connection_json)
+
+    def test_explicit_driver_is_honored(self, fabric_service_principal_connection_json):
+        fabric_service_principal_connection_json["driver"] = "ODBC Driver 17 for SQL Server"
+        pyodbc, _ = self._connect(fabric_service_principal_connection_json)
+        assert "DRIVER={ODBC Driver 17 for SQL Server};" in pyodbc.connect.call_args[0][0]
+
+    def test_missing_explicit_driver_raises(self, fabric_service_principal_connection_json):
+        fabric_service_principal_connection_json["driver"] = "Nonexistent Driver"
+        with pytest.raises(ConnectionTypeError, match="is not installed"):
+            self._connect(fabric_service_principal_connection_json)
+
+    def test_no_odbc_driver_installed_raises(self, fabric_service_principal_connection_json):
+        with pytest.raises(ConnectionTypeError, match="msodbcsql18"):
+            self._connect(
+                fabric_service_principal_connection_json,
+                pyodbc=self._mock_pyodbc(drivers=["PostgreSQL Unicode"]),
+            )
+
+    def test_missing_pyodbc_raises_import_error(self, fabric_service_principal_connection_json):
+        with patch.dict("sys.modules", {"pyodbc": None}):
+            from bruin._connection import _create_fabric
+
+            with pytest.raises(ImportError, match=r"bruin-sdk\[fabric\]"):
+                _create_fabric(fabric_service_principal_connection_json)
+
+    def test_missing_azure_identity_raises_import_error(
+        self, fabric_service_principal_connection_json
+    ):
+        modules = {"pyodbc": self._mock_pyodbc(), "azure": None, "azure.identity": None}
+        with patch.dict("sys.modules", modules):
+            from bruin._connection import _create_fabric
+
+            with pytest.raises(ImportError, match=r"bruin-sdk\[fabric\]"):
+                _create_fabric(fabric_service_principal_connection_json)
+
+
 class TestRepr:
     def test_connection_repr(self):
         conn = Connection("my_pg", "postgres", {"host": "localhost"})

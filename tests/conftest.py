@@ -175,6 +175,30 @@ def fabric_connection_json():
 
 
 @pytest.fixture
+def fabric_service_principal_connection_json():
+    """Fabric connection using a Microsoft Entra ID service principal (no username)."""
+    return {
+        "host": "sql-endpoint-guid.datawarehouse.fabric.microsoft.com",
+        "port": 1433,
+        "database": "warehouse",
+        "client_id": "app-id",
+        "client_secret": "app-secret",
+        "tenant_id": "tenant-id",
+    }
+
+
+@pytest.fixture
+def fabric_azure_default_connection_json():
+    """Fabric connection using the DefaultAzureCredential chain (no username)."""
+    return {
+        "host": "sql-endpoint-guid.datawarehouse.fabric.microsoft.com",
+        "port": 1433,
+        "database": "warehouse",
+        "use_azure_default_credential": True,
+    }
+
+
+@pytest.fixture
 def oracle_connection_json():
     return {
         "host": "oracle.example.com",
