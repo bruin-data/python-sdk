@@ -71,6 +71,15 @@ all = [
 ]
 dev = ["pytest", "pytest-cov", "ruff"]
 
+[tool.uv]
+# Lockfile-only constraint; does not affect published package metadata.
+# snowflake-connector-python 5.x drops the `region` connection parameter, and
+# 4.x requires pyarrow<24 on Python 3.14+.
+constraint-dependencies = [
+    "snowflake-connector-python<5",
+    "pyarrow<24; python_version >= '3.14'",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/bruin"]
 
