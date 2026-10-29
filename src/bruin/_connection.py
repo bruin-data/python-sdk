@@ -41,7 +41,7 @@ class Connection:
         return self._client
 
     def query(self, sql: str) -> "pd.DataFrame | None":  # noqa: F821
-        """Execute *sql* on this connection.
+        """Render *sql* with the Bruin CLI, then execute on this connection's client.
 
         Returns a pandas DataFrame for data-returning statements,
         or None for DDL/DML.

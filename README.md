@@ -141,7 +141,8 @@ else:
 
 ### `query(sql, connection=None)`
 
-Execute SQL and return results.
+Render SQL with the Bruin CLI (Jinja templates and environment schema prefixes),
+then execute the rendered SQL with the existing Python database client and return results.
 
 ```python
 from bruin import query
@@ -174,6 +175,54 @@ df_pg = query("SELECT * FROM users", connection="my_postgres")
 ```
 
 Every query is automatically annotated with `@bruin.config` metadata for observability and cost tracking.
+
+#### CLI rendering requirements
+
+Both `query()` and `get_connection(...).query()` render before executing. The selected
+connection name is passed to the renderer; execution still uses that connection's
+existing Python client and injected credentials. Result handling is unchanged: the
+driver supplies the DataFrame or `None` (DuckDB also returns DataFrames for DDL/DML).
+The CLI only returns SQL; it never executes the query or transports result data.
+
+```python
+df = query("SELECT * FROM analytics.events WHERE dt >= '{{ start_date }}'")
+conn = get_connection("my_bigquery")
+df = conn.query("SELECT '{{ start_date }}' AS run_start")
+```
+
+**Pending CLI integration:** the CLI change is being developed separately. The
+following provisional contract must be verified against that implementation before
+release; these flags and response format are not claimed to exist in a released CLI:
+
+```text
+bruin render --stdin --connection NAME --raw-query --output json
+stdin: the query SQL
+stdout: {"query": "rendered SQL"}
+```
+
+The stdin mode must render only the supplied query, including Jinja and schema
+prefixes, without asset materialization or asset hooks. The SDK does not create a
+temporary SQL asset. The process inherits the current working directory and a copy
+of the full environment, including `BRUIN_CONFIG_FILE`, connection credentials,
+`BRUIN_THIS`, asset/pipeline names, execution time, and run ID. Only the child's
+`BRUIN_CONNECTION` is overridden with the selected connection name; the parent's
+environment and Python connection remain unchanged.
+
+`BRUIN_ENVIRONMENT`, when present, is also passed as `--environment`.
+`BRUIN_START_DATETIME` / `BRUIN_END_DATETIME` (falling back to the corresponding
+`*_DATE` values) are passed as `--start-date` / `--end-date`.
+`BRUIN_FULL_REFRESH=1` adds `--full-refresh`, and typed `context.vars` are passed
+as repeated `--var KEY=JSON` arguments. The CLI must honor the inherited run
+context in stdin mode. With no run context, CLI defaults apply.
+
+The SDK invokes `bruin` from `PATH`, or the executable specified by `BRUIN_PATH`,
+without a shell and sends SQL through stdin. A missing/unusable binary, nonzero
+render exit, invalid/empty JSON query, or 60-second render timeout raises
+`QueryError` before touching the database client. No original-SQL fallback is used.
+Compatibility is based on the command contract, not a guessed minimum version:
+older CLIs without this stdin mode fail with an upgrade message. The CLI release
+providing this contract must be identified during the pending integration check.
+Direct native client calls such as `conn.client.query(...)` bypass SDK rendering.
 
 ---
 
@@ -292,7 +341,8 @@ from bruin.exceptions import (
     ConnectionNotFoundError, # Connection name not found or env var missing
     ConnectionParseError,    # Invalid JSON in connection env var
     ConnectionTypeError,     # Unsupported or generic connection type
-    QueryError,              # SQL execution failed
+    CLIError,               # Bruin CLI process failed
+    QueryError,              # SQL rendering or execution failed
 )
 ```
 

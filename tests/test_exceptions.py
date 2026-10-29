@@ -88,7 +88,9 @@ class TestConnectionTypeError:
 
 
 class TestQueryError:
-    def test_wraps_underlying_exception(self, monkeypatch, snowflake_connection_json):
+    def test_wraps_underlying_exception(
+        self, monkeypatch, snowflake_connection_json, render_passthrough
+    ):
         monkeypatch.setenv(
             "BRUIN_CONNECTION_TYPES",
             json.dumps({"sf": "snowflake"}),

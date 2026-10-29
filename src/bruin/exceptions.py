@@ -15,4 +15,8 @@ class ConnectionTypeError(BruinError):
 
 
 class QueryError(BruinError):
-    """Raised when a SQL query fails to execute."""
+    """Raised when SQL rendering or database execution fails."""
+
+
+class CLIError(BruinError):
+    """Raised when a Bruin CLI command cannot start or fails."""

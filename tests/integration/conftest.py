@@ -19,6 +19,12 @@ import os
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _driver_only_rendering(render_passthrough):
+    """These tests exercise real database drivers, not CLI rendering."""
+
+
 # ---------------------------------------------------------------------------
 # Auto-apply the integration marker to every test collected in this directory
 # ---------------------------------------------------------------------------
