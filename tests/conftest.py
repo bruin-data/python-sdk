@@ -4,6 +4,12 @@ import pytest
 
 
 @pytest.fixture
+def render_passthrough(monkeypatch):
+    """Keep driver tests independent of the CLI; test_render covers the boundary."""
+    monkeypatch.setattr("bruin._query._render_sql", lambda sql, connection: sql)
+
+
+@pytest.fixture
 def bq_connection_json():
     """Realistic BigQuery connection payload (service_account_json is double-serialized)."""
     sa_info = {

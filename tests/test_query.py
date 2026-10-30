@@ -7,6 +7,8 @@ import pytest
 from bruin import query
 from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, QueryError
 
+pytestmark = pytest.mark.usefixtures("render_passthrough")
+
 
 @pytest.fixture
 def _setup_bq(monkeypatch, bq_connection_json):

@@ -3,6 +3,7 @@ import logging
 import time
 
 from bruin._connection import GCPConnection, get_connection
+from bruin._render import _render_sql
 from bruin.exceptions import ConnectionNotFoundError, ConnectionTypeError, QueryError
 
 logger = logging.getLogger("bruin")
@@ -63,7 +64,7 @@ def _run_query(conn, sql: str):
     if conn.type == "generic":
         raise ConnectionTypeError(f"Cannot run queries against generic connection '{conn.name}'.")
 
-    annotated = _annotate_sql(sql)
+    annotated = _annotate_sql(_render_sql(sql, conn.name))
 
     logger.debug(
         "Executing query on '%s' (%s, %d chars)",
@@ -101,7 +102,8 @@ def query(sql: str, connection: str | None = None) -> "pd.DataFrame | None":  # 
     Parameters
     ----------
     sql : str
-        The SQL statement to execute.
+        The SQL statement to render with the Bruin CLI (Jinja and schema prefix)
+        before executing with the Python database client.
     connection : str, optional
         Connection name.  When *None*, falls back to the asset's default
         connection (``BRUIN_CONNECTION`` env var).

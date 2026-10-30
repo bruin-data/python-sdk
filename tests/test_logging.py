@@ -6,6 +6,8 @@ import pytest
 
 from bruin import get_connection, query
 
+pytestmark = pytest.mark.usefixtures("render_passthrough")
+
 
 @pytest.fixture
 def pg_env(monkeypatch, postgres_connection_json):
